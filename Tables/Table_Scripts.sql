@@ -6,6 +6,10 @@ CREATE TABLE master_data (
     masterdata_value  VARCHAR2(100) NOT NULL
 );
 
+ALTER TABLE master_data
+ADD CONSTRAINT uq_master_data_type_value_parent
+UNIQUE (masterdata_type, masterdata_value, parent_id);
+
 -- Candidates Table
 CREATE TABLE candidates (
     candidate_id        NUMBER PRIMARY KEY,
@@ -119,3 +123,6 @@ CREATE TABLE employee_exit (
     exit_date   DATE NOT NULL
 );
 
+select * from locations;
+select * from countries;
+select * from employees;
