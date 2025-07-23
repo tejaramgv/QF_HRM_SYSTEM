@@ -35,6 +35,7 @@ CREATE TABLE candidates (
     status              VARCHAR2(15) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'))
 );
 
+
 -- Employees Table
 CREATE TABLE employee (
     employee_id      NUMBER PRIMARY KEY,
@@ -123,6 +124,17 @@ CREATE TABLE employee_exit (
     exit_date   DATE NOT NULL
 );
 
-select * from locations;
-select * from countries;
-select * from employees;
+
+--Departments Table
+CREATE TABLE department (
+    department_id   NUMBER PRIMARY KEY,
+    department_name VARCHAR2(100) NOT NULL,
+    manager_id      NUMBER REFERENCES employees(employee_id),
+    city_id         NUMBER REFERENCES master_data(masterdata_id)
+);
+
+
+ALTER TABLE candidates ADD gender CHAR(1) CHECK (gender IN ('M','F'));
+ALTER TABLE employee ADD gender CHAR(1) CHECK (gender IN ('M','F'));
+
+
