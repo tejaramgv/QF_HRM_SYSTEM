@@ -1,0 +1,48 @@
+CREATE OR REPLACE PACKAGE master_data_validator AS
+    FUNCTION is_valid(p_value VARCHAR2, p_type VARCHAR2) RETURN BOOLEAN;
+    FUNCTION is_valid(p_id NUMBER, p_type VARCHAR2) RETURN BOOLEAN;
+
+END master_data_validator;
+/
+
+CREATE OR REPLACE PACKAGE BODY master_data_validator AS
+    FUNCTION is_valid(p_value VARCHAR2, p_type VARCHAR2) RETURN BOOLEAN IS
+        ln_cnt NUMBER;
+    BEGIN
+        SELECT COUNT(*) INTO ln_cnt
+        FROM master_data
+        WHERE LOWER(masterdata_value) = LOWER(p_value)
+          AND masterdata_type = p_type;
+
+        RETURN ln_cnt > 0;
+    END;
+    
+    FUNCTION is_valid(p_id NUMBER, p_type VARCHAR2) RETURN BOOLEAN IS
+        ln_cnt NUMBER;
+    BEGIN
+        SELECT COUNT(*) INTO ln_cnt
+        FROM master_data
+        WHERE masterdata_id=p_id
+          AND masterdata_type = p_type;
+
+        RETURN ln_cnt > 0;
+    END;
+END master_data_validator;
+/
+
+
+CREATE OR REPLACE TRIGGER trg_validate_dept_city_master_data
+BEFORE INSERT OR UPDATE ON department
+FOR EACH ROW
+BEGIN
+    -- Validate department_name against master_data (type = 'DEPARTMENT')
+    IF :NEW.department_name IS NOT NULL AND NOT master_data_validator.is_valid(:NEW.department_name, 'DEPARTMENT') THEN
+        RAISE_APPLICATION_ERROR(-20012, 'Invalid DEPARTMENT name.');
+    END IF;
+
+    -- Validate city_id against master_data (type = 'CITY')
+    IF :NEW.city_id IS NOT NULL AND NOT master_data_validator.is_valid(:NEW.city_id, 'CITY') THEN
+        RAISE_APPLICATION_ERROR(-20013, 'Invalid CITY ID.');
+    END IF;
+END;
+/

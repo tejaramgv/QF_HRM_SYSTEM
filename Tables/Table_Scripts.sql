@@ -53,6 +53,20 @@ CREATE TABLE employee (
     leaves_balance   NUMBER DEFAULT 0
 );
 
+SELECT constraint_name
+FROM user_constraints
+WHERE table_name = 'EMPLOYEE'
+  AND constraint_type = 'R'
+;
+
+ALTER TABLE employees
+DROP CONSTRAINT SYS_C008336;
+
+ALTER TABLE employee
+ADD role VARCHAR2(100) NOT NULL;
+
+
+
 -- Employee Leaves Table (Composite PK)
 CREATE TABLE employee_leaves (
     employee_id   NUMBER REFERENCES employees(employee_id),
@@ -77,6 +91,7 @@ CREATE TABLE employee_attendance (
 
 -- Baseline Salary Table (Composite PK)
 CREATE TABLE baseline_salary (
+    band_id      NUMBER PRIMARY KEY,
     band         VARCHAR2(2),
     job_title    VARCHAR2(100) NOT NULL,
     skill        VARCHAR2(50),
@@ -84,9 +99,10 @@ CREATE TABLE baseline_salary (
     max_salary   NUMBER NOT NULL,
     min_exp      NUMBER NOT NULL,
     max_exp      NUMBER NOT NULL,
-    PRIMARY KEY (band, job_title, skill)
+    UNIQUE (band, job_title, skill)
 );
 
+drop table baseline_salary;
 -- Performance Reviews Table (Composite Unique)
 CREATE TABLE performance_reviews (
     review_id   NUMBER PRIMARY KEY,
