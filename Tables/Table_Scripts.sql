@@ -137,4 +137,27 @@ CREATE TABLE department (
 ALTER TABLE candidates ADD gender CHAR(1) CHECK (gender IN ('M','F'));
 ALTER TABLE employee ADD gender CHAR(1) CHECK (gender IN ('M','F'));
 
+SELECT constraint_name
+FROM user_constraints
+WHERE table_name = 'CANDIDATES'
+  AND constraint_type = 'R';
+  
+ALTER TABLE candidates
+DROP CONSTRAINT SYS_C008290;
 
+ALTER TABLE candidates
+RENAME COLUMN city_id TO city;
+
+ALTER TABLE candidates
+MODIFY city VARCHAR2(30);
+
+ALTER TABLE candidates
+RENAME COLUMN country_id TO country;
+
+ALTER TABLE candidates
+MODIFY country VARCHAR2(30);
+
+
+
+
+  
