@@ -17,9 +17,6 @@ BEGIN
     p_expected_salary => 600000,
     p_years_of_experience => 2,
     p_skills => 'Python, SQL',
-    p_interview_status => 'Hired',
-    p_rejection_reason => NULL,
-    p_status => 'Active',
     p_gender => 'F',
     p_role => 'Backend Developer'
   );

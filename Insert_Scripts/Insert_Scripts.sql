@@ -87,7 +87,21 @@ INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, paren
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (85, 'PERFORMANCE_RATING', '4', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (86, 'PERFORMANCE_RATING', '5', NULL);
 
+
+SELECT a.table_name AS child_table,
+       a.constraint_name AS foreign_key_name
+FROM user_constraints a
+JOIN user_constraints b ON a.r_constraint_name = b.constraint_name
+WHERE a.constraint_type = 'R'
+  AND b.table_name = 'MASTER_DATA';
+
+
+ALTER TABLE Employee ENABLE CONSTRAINT SYS_C008646;
+ALTER TABLE DEPARTMENT ENABLE CONSTRAINT SYS_C008598;
+
+--TRUNCATE TABLE master_data;
 --insert data into departments
+
 
 INSERT INTO department (department_id, department_name, city_id, manager_id) VALUES (1, 'HR', 11, NULL); -- Hyderabad
 INSERT INTO department (department_id, department_name, city_id, manager_id) VALUES (2, 'Finance', 12, NULL); -- Mumbai
@@ -100,7 +114,7 @@ INSERT INTO department (department_id, department_name, city_id, manager_id) VAL
 INSERT INTO department (department_id, department_name, city_id, manager_id) VALUES (9, 'Research and development', 19, NULL); -- Melbourne
 INSERT INTO department (department_id, department_name, city_id, manager_id) VALUES (10, 'Procurement', 20, NULL); -- Dubai
 
-
+select * from department;
 --insert base line salary
 
 INSERT INTO baseline_salary 
@@ -337,4 +351,6 @@ INSERT INTO candidates VALUES (79, 'Isha', 'Gupta', 'isha.gupta@gmail.com', 9865
 INSERT INTO candidates VALUES (80, 'Yash', 'Malhotra', 'yash.malhotra@gmail.com', 7876543220, TO_DATE('2005-01-25','YYYY-MM-DD'), 'Aadhar', 112233445566, 'B.Com', 'Mumbai University', 8.2, 'Mumbai', 'India', NULL, NULL, 41000, 0, 'Java', 'In Progress', NULL, 'Active', 'M','Software Engineer');
 
 SELECT * FROM candidates ;
---TRUNCATE TABLE candidates;
+TRUNCATE TABLE candidates;
+TRUNCATE TABLE Employee;
+TRUNCATE TABLE Department;

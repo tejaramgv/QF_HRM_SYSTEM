@@ -50,7 +50,7 @@ CREATE TABLE employee (
     employee_status  VARCHAR2(15) DEFAULT 'Active' CHECK (employee_status IN ('Active', 'Inactive')),
     exit_date        DATE,
     exit_reason_id   NUMBER REFERENCES master_data(masterdata_id),
-    leaves_balance   NUMBER DEFAULT 0
+    leaves_balance   NUMBER DEFAULT 24
 );
 
 SELECT constraint_name
@@ -110,7 +110,7 @@ CREATE TABLE baseline_salary (
     UNIQUE (band, job_title, skill)
 );
 
-drop table baseline_salary;
+--drop table baseline_salary;
 -- Performance Reviews Table (Composite Unique)
 CREATE TABLE performance_reviews (
     review_id   NUMBER PRIMARY KEY,
@@ -189,4 +189,9 @@ ALTER TABLE candidates ADD CONSTRAINT uniq_id_proof UNIQUE (id_proof_num);
 
 ALTER TABLE candidates ADD CONSTRAINT unique_phone UNIQUE (phone);
 
+ALTER TABLE candidates MODIFY id_proof_num VARCHAR2(20);
+
+ALTER TABLE candidates MODIFY Interview_Status VARCHAR2(20) DEFAULT 'In Progress';
+
+drop table employee;
 --truncate table candidates
