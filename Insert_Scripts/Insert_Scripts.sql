@@ -254,29 +254,6 @@ INSERT INTO baseline_salary
 (band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
 VALUES (1050, 'C1', 'Backend Developer', 'Express', 787219, 1023563, 4, 9);
 
-CREATE TABLE candidates (
-    candidate_id        NUMBER PRIMARY KEY,
-    first_name          VARCHAR2(50) NOT NULL,
-    last_name           VARCHAR2(50) NOT NULL,
-    email               VARCHAR2(100) UNIQUE NOT NULL,
-    phone               NUMBER(10) NOT NULL,
-    dob                 DATE NOT NULL,
-    id_proof_type       VARCHAR2(30) CHECK (id_proof_type IN ('Passport', 'Aadhar', 'DL')),
-    id_proof_num        NUMBER,
-    highest_degree      VARCHAR2(30) NOT NULL,
-    university          VARCHAR2(50) NOT NULL,
-    cgpa                NUMBER NOT NULL,
-    city          VARCHAR2(30),
-    country        VARCHAR2(30),
-    last_employer       VARCHAR2(50),
-    last_salary         NUMBER,
-    expected_salary     NUMBER,
-    years_of_experience NUMBER DEFAULT 0,
-    skills              VARCHAR2(80) NOT NULL,
-    interview_status    VARCHAR2(30) CHECK (interview_status IN ('Rejected', 'In Progress', 'Selected')),
-    rejection_reason    VARCHAR2(200),
-    status              VARCHAR2(15) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'))
-);
 
 ----candidates inserts
 INSERT INTO candidates VALUES (1, 'Arjun', 'Reddy', 'arjun.reddy@gmail.com', 9876543210, TO_DATE('1993-05-22','YYYY-MM-DD'), 'Passport', 'K1234567', 'B.Tech', 'IIT Madras', 8.9, 'Hyderabad', 'India', 'Infosys', 800000, 1000000, 5, 'Java', 'In Progress', NULL, 'Active', 'M','Software Engineer');
