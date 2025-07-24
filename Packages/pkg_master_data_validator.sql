@@ -48,6 +48,30 @@ BEGIN
 END;
 /
 
+
+CREATE OR REPLACE TRIGGER trg_validate_baseline_salary_master_data
+BEFORE INSERT OR UPDATE ON baseline_salary
+FOR EACH ROW
+BEGIN
+    -- Validate BAND from master_data
+    IF :NEW.band IS NOT NULL AND NOT master_data_validator.is_valid(:NEW.band, 'BAND') THEN
+        RAISE_APPLICATION_ERROR(-20010, 'Invalid BAND.');
+    END IF;
+
+    -- Validate SKILL from master_data (only if skill is not null)
+    IF :NEW.skill IS NOT NULL AND NOT master_data_validator.is_valid(:NEW.skill, 'SKILL') THEN
+        RAISE_APPLICATION_ERROR(-20011, 'Invalid SKILL.');
+    END IF;
+    
+    -- Validate JOB_TITLE
+    IF :NEW.job_title IS NOT NULL AND NOT master_data_validator.is_valid(:NEW.job_title, 'JOB_TITLE') THEN
+        RAISE_APPLICATION_ERROR(-20012, 'Invalid JOB TITLE.');
+    END IF;
+
+END;
+/
+
+
 CREATE OR REPLACE TRIGGER trg_check_job_title
 BEFORE INSERT OR UPDATE ON candidates
 FOR EACH ROW
