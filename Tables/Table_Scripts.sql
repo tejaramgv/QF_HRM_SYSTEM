@@ -30,7 +30,7 @@ CREATE TABLE candidates (
     expected_salary     NUMBER,
     years_of_experience NUMBER DEFAULT 0,
     skills              VARCHAR2(80) NOT NULL,
-    interview_status    VARCHAR2(30) CHECK (interview_status IN ('Rejected', 'In Progress', 'Hired')),
+    interview_status    VARCHAR2(30) CHECK (interview_status IN ('Rejected', 'In Progress', 'Selected')),
     rejection_reason    VARCHAR2(200),
     status              VARCHAR2(15) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'))
 );
