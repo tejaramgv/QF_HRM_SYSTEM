@@ -64,6 +64,13 @@ ADD CONSTRAINT fk_emp_department
 FOREIGN KEY (department_id)
 REFERENCES department(department_id);
 
+SELECT constraint_name, table_name
+FROM user_constraints
+WHERE constraint_name = 'SYS_C008541';
+
+ALTER TABLE employee
+DROP CONSTRAINT SYS_C008541;
+
 ALTER TABLE employee
 ADD role VARCHAR2(100) NOT NULL;
 
@@ -150,6 +157,7 @@ CREATE TABLE department (
     city_id         NUMBER REFERENCES master_data(masterdata_id)
 );
 
+--drop table department;
 
 ALTER TABLE candidates ADD gender CHAR(1) CHECK (gender IN ('M','F'));
 ALTER TABLE employee ADD gender CHAR(1) CHECK (gender IN ('M','F'));
@@ -174,7 +182,11 @@ RENAME COLUMN country_id TO country;
 ALTER TABLE candidates
 MODIFY country VARCHAR2(30);
 
+ALTER TABLE candidates
+ADD role VARCHAR2(100) NOT NULL;
 
+ALTER TABLE candidates ADD CONSTRAINT uniq_id_proof UNIQUE (id_proof_num);
 
+ALTER TABLE candidates ADD CONSTRAINT unique_phone UNIQUE (phone);
 
-  
+--truncate table candidates
