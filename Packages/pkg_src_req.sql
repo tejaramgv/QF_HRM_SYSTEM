@@ -1,3 +1,8 @@
+CREATE SEQUENCE employee_seq
+START WITH 1001
+INCREMENT BY 1
+NOCACHE;
+
 CREATE OR REPLACE PACKAGE source_requirement AS
 
 PROCEDURE add_candidate (
@@ -65,6 +70,12 @@ PROCEDURE list_candidates (
 PROCEDURE get_candidate_details (
     p_candidate_id IN candidates.candidate_id%TYPE,
     p_section      IN VARCHAR2
+);
+
+PROCEDURE promote_candidate_to_employee (
+    p_candidate_id   IN NUMBER,
+    p_department_id  IN NUMBER,
+    p_salary         IN NUMBER DEFAULT NULL
 );
 END source_requirement;
 /
@@ -308,6 +319,119 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('Error: Invalid section. Use PERSONAL, ACADEMIC, or PROFESSIONAL.');
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Unexpected Error: ' || SQLERRM);
+END;
+
+--CANDIDATE TO EMPLOYEE CONVERSION
+PROCEDURE promote_candidate_to_employee (
+    p_candidate_id   IN NUMBER,
+    p_department_id  IN NUMBER,
+    p_salary         IN NUMBER DEFAULT NULL
+) IS
+    v_first_name   candidates.first_name%TYPE;
+    v_last_name    candidates.last_name%TYPE;
+    v_skill        candidates.skills%TYPE;
+    v_exp          candidates.years_of_experience%TYPE;
+    v_salary       NUMBER;
+    v_band_id      baseline_salary.band_id%TYPE;
+    v_new_emp_id   employee.employee_id%TYPE;
+    v_gender       candidates.gender%TYPE;
+    v_role         candidates.role%TYPE;
+    v_manager_id   employee.employee_id%TYPE;
+    v_band_found   BOOLEAN := FALSE;
+    v_status       candidates.interview_status%TYPE;
+BEGIN
+    -- Step 1: Fetch candidate details
+    SELECT first_name, last_name, skills, years_of_experience,
+           COALESCE(p_salary, expected_salary), gender, role,interview_status
+    INTO v_first_name, v_last_name, v_skill, v_exp, v_salary, v_gender, v_role,v_status
+    FROM candidates
+    WHERE candidate_id = p_candidate_id;
+    
+    IF v_status!='Selected' THEN
+        IF v_status='In Progress' THEN
+        RAISE_APPLICATION_ERROR(-20101, 'Candidate interview process is still in progress');
+        ELSE
+        RAISE_APPLICATION_ERROR(-20102, ' Candidate interview status is rejected, cannot promote to employee.');
+        END IF;
+    END IF;    
+
+    -- Step 2: Try to find matching band (strict experience match)
+    BEGIN
+        SELECT band_id
+        INTO v_band_id
+        FROM baseline_salary
+        WHERE job_title = v_role
+          AND v_salary BETWEEN min_salary AND max_salary
+          AND v_exp BETWEEN min_exp AND max_exp
+        ORDER BY min_exp DESC
+        FETCH FIRST 1 ROWS ONLY;
+
+        v_band_found := TRUE;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            NULL; -- fall through to fallback logic
+    END;
+
+    -- Step 2b: Fallback - if exp > max_exp and other conditions match
+    IF NOT v_band_found THEN
+        BEGIN
+            SELECT band_id
+            INTO v_band_id
+            FROM baseline_salary
+            WHERE job_title = v_role
+              AND v_salary BETWEEN min_salary AND max_salary
+              AND max_exp = (
+                SELECT MAX(max_exp)
+                FROM baseline_salary
+                WHERE job_title = v_role
+              );
+            v_band_found := TRUE;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20002, ' No suitable band found for candidate.');
+        END;
+    END IF;
+
+    -- Step 3: Check for department manager
+    BEGIN
+        SELECT manager_id
+        INTO v_manager_id
+        FROM department
+        WHERE department_id = p_department_id
+          AND manager_id IS NOT NULL;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            v_manager_id := NULL;
+    END;
+
+    -- Step 4: Generate new employee ID
+    SELECT employee_seq.NEXTVAL INTO v_new_emp_id FROM dual;
+
+    -- Step 5: Insert employee
+    INSERT INTO employee (
+        employee_id, candidate_id, first_name, last_name,
+        salary, department_id, date_of_joining, band_id,
+        manager_id, employee_status, leaves_balance, gender, role
+    ) VALUES (
+        v_new_emp_id, p_candidate_id, v_first_name, v_last_name,
+        v_salary, p_department_id, SYSDATE, v_band_id,
+        v_manager_id, 'Active', 0, v_gender, v_role
+    );
+
+    DBMS_OUTPUT.PUT_LINE('Candidate ' || p_candidate_id || ' promoted to Employee ID ' || v_new_emp_id);
+    IF v_manager_id IS NULL THEN
+        DBMS_OUTPUT.PUT_LINE('No department manager assigned.');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('Assigned Manager ID: ' || v_manager_id);
+    END IF;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Candidate ID not found.');
+    WHEN DUP_VAL_ON_INDEX THEN
+        RAISE_APPLICATION_ERROR(-20003, 'Duplicate employee ID. Check sequence.');
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20099, 'Unexpected error: ' || SQLERRM);
 END;
 
 END;
