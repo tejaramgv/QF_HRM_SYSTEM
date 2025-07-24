@@ -103,156 +103,55 @@ INSERT INTO department (department_id, department_name, city_id, manager_id) VAL
 
 --insert base line salary
 
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1001, 'A1', 'Software Engineer', 'Java', 648015, 774986, 0, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1002, 'A1', 'HR Executive', 'React', 593653, 838341, 5, 9);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1003, 'A1', 'Finance Analyst', 'Node.js', 430780, 646730, 5, 8);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1004, 'A1', 'DevOps Engineer', 'AWS', 435816, 564542, 1, 4);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1005, 'A1', 'UI/UX Designer', 'Docker', 703617, 993041, 0, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1006, 'A1', 'Sales Manager', 'C#', 524918, 795627, 2, 6);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1007, 'A1', 'Product Manager', 'Express', 543956, 717245, 3, 8);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1008, 'A1', 'System Administrator', 'Express', 797944, 1095596, 1, 6);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1009, 'A1', 'QA Engineer', 'Angular', 637468, 803532, 0, 2);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1010, 'A1', 'Backend Developer', 'React', 456641, 754035, 2, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1011, 'A2', 'Software Engineer', 'Docker', 764520, 904854, 5, 7);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1012, 'A2', 'HR Executive', 'C#', 692010, 870471, 5, 7);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1013, 'A2', 'Finance Analyst', 'Kubernetes', 482050, 609744, 5, 9);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1014, 'A2', 'DevOps Engineer', 'CSS', 718479, 877875, 4, 6);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1015, 'A2', 'UI/UX Designer', 'Express', 550298, 772183, 3, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1016, 'A2', 'Sales Manager', 'Docker', 457694, 604587, 2, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1017, 'A2', 'Product Manager', 'React', 496142, 622322, 2, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1018, 'A2', 'System Administrator', 'Python', 775956, 892030, 1, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1019, 'A2', 'QA Engineer', 'React', 586802, 716602, 1, 3);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1020, 'A2', 'Backend Developer', 'Kubernetes', 462297, 682112, 1, 6);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1021, 'B1', 'Software Engineer', 'AWS', 716917, 831926, 5, 7);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1022, 'B1', 'HR Executive', 'C#', 433934, 681166, 3, 7);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1023, 'B1', 'Finance Analyst', 'Angular', 625419, 872183, 1, 3);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1024, 'B1', 'DevOps Engineer', 'PL/SQL', 542185, 785122, 4, 8);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1025, 'B1', 'UI/UX Designer', 'Java', 648393, 909280, 4, 6);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1026, 'B1', 'Sales Manager', 'C#', 594738, 732475, 0, 4);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1027, 'B1', 'Product Manager', 'CSS', 706767, 888808, 1, 6);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1028, 'B1', 'System Administrator', 'Angular', 412983, 574724, 0, 4);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1029, 'B1', 'QA Engineer', 'CSS', 581006, 712392, 1, 4);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1030, 'B1', 'Backend Developer', 'Node.js', 400051, 632538, 4, 7);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1031, 'B2', 'Software Engineer', 'Docker', 612521, 791991, 3, 7);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1032, 'B2', 'HR Executive', 'Express', 432091, 615327, 1, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1033, 'B2', 'Finance Analyst', 'Node.js', 785429, 1076052, 4, 8);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1034, 'B2', 'DevOps Engineer', 'Node.js', 483945, 628513, 1, 4);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1035, 'B2', 'UI/UX Designer', 'Python', 750175, 972281, 3, 7);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1036, 'B2', 'Sales Manager', 'C#', 584995, 717785, 0, 4);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1037, 'B2', 'Product Manager', 'Java', 472700, 661037, 0, 2);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1038, 'B2', 'System Administrator', 'Express', 694719, 849780, 1, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1039, 'B2', 'QA Engineer', 'Python', 671790, 803085, 5, 7);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1040, 'B2', 'Backend Developer', 'Angular', 729042, 953666, 1, 4);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1041, 'C1', 'Software Engineer', 'PL/SQL', 609720, 854727, 1, 4);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1042, 'C1', 'HR Executive', 'Node.js', 484999, 716373, 0, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1043, 'C1', 'Finance Analyst', 'Kubernetes', 602019, 861944, 0, 3);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1044, 'C1', 'DevOps Engineer', 'Spring', 786571, 986313, 0, 4);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1045, 'C1', 'UI/UX Designer', 'Node.js', 722896, 949902, 0, 2);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1046, 'C1', 'Sales Manager', 'Spring', 425991, 579694, 1, 6);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1047, 'C1', 'Product Manager', 'PL/SQL', 787663, 1078054, 0, 5);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1048, 'C1', 'System Administrator', 'CSS', 698678, 993291, 4, 8);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1049, 'C1', 'QA Engineer', 'Kubernetes', 772635, 1048053, 2, 7);
-INSERT INTO baseline_salary 
-(band_id, band, job_title, skill, min_salary, max_salary, min_exp, max_exp)
-VALUES (1050, 'C1', 'Backend Developer', 'Express', 787219, 1023563, 4, 9);
+-- Software Engineer
+INSERT INTO baseline_salary VALUES (1001, 'Junior', 'Software Engineer', 400000, 600000, 0.0, 2.99);
+INSERT INTO baseline_salary VALUES (1002, 'Mid', 'Software Engineer', 610000, 950000, 3.0, 5.99);
+INSERT INTO baseline_salary VALUES (1003, 'Senior', 'Software Engineer', 960000, 1350000, 6.0, 8.99);
+
+-- HR Executive
+INSERT INTO baseline_salary VALUES (1004, 'Junior', 'HR Executive', 380000, 550000, 0.0, 2.99);
+INSERT INTO baseline_salary VALUES (1005, 'Mid', 'HR Executive', 600000, 880000, 3.0, 5.99);
+INSERT INTO baseline_salary VALUES (1006, 'Senior', 'HR Executive', 900000, 1250000, 6.0, 8.99);
+
+-- Finance Analyst
+INSERT INTO baseline_salary VALUES (1007, 'Junior', 'Finance Analyst', 370000, 580000, 0.0, 2.99);
+INSERT INTO baseline_salary VALUES (1008, 'Mid', 'Finance Analyst', 600000, 950000, 3.0, 5.99);
+INSERT INTO baseline_salary VALUES (1009, 'Senior', 'Finance Analyst', 1000000, 1400000, 6.0, 8.99);
+
+-- DevOps Engineer
+INSERT INTO baseline_salary VALUES (1010, 'Junior', 'DevOps Engineer', 450000, 600000, 0.0, 2.99);
+INSERT INTO baseline_salary VALUES (1011, 'Mid', 'DevOps Engineer', 650000, 950000, 3.0, 5.99);
+INSERT INTO baseline_salary VALUES (1012, 'Senior', 'DevOps Engineer', 1000000, 1350000, 6.0, 8.99);
+
+-- UI/UX Designer
+INSERT INTO baseline_salary VALUES (1013, 'Junior', 'UI/UX Designer', 400000, 580000, 0.0, 2.99);
+INSERT INTO baseline_salary VALUES (1014, 'Mid', 'UI/UX Designer', 600000, 950000, 3.0, 5.99);
+INSERT INTO baseline_salary VALUES (1015, 'Senior', 'UI/UX Designer', 980000, 1350000, 6.0, 8.99);
+
+-- Sales Manager
+INSERT INTO baseline_salary VALUES (1016, 'Junior', 'Sales Manager', 420000, 590000, 0.0, 2.99);
+INSERT INTO baseline_salary VALUES (1017, 'Mid', 'Sales Manager', 620000, 920000, 3.0, 5.99);
+INSERT INTO baseline_salary VALUES (1018, 'Senior', 'Sales Manager', 950000, 1300000, 6.0, 8.99);
+
+-- Product Manager
+INSERT INTO baseline_salary VALUES (1019, 'Junior', 'Product Manager', 480000, 650000, 0.0, 2.99);
+INSERT INTO baseline_salary VALUES (1020, 'Mid', 'Product Manager', 700000, 1000000, 3.0, 5.99);
+INSERT INTO baseline_salary VALUES (1021, 'Senior', 'Product Manager', 1050000, 1350000, 6.0, 8.99);
+
+-- System Administrator
+INSERT INTO baseline_salary VALUES (1022, 'Junior', 'System Administrator', 390000, 580000, 0.0, 2.99);
+INSERT INTO baseline_salary VALUES (1023, 'Mid', 'System Administrator', 600000, 900000, 3.0, 5.99);
+INSERT INTO baseline_salary VALUES (1024, 'Senior', 'System Administrator', 920000, 1250000, 6.0, 8.99);
+
+-- QA Engineer
+INSERT INTO baseline_salary VALUES (1025, 'Junior', 'QA Engineer', 350000, 520000, 0.0, 2.99);
+INSERT INTO baseline_salary VALUES (1026, 'Mid', 'QA Engineer', 580000, 870000, 3.0, 5.99);
+INSERT INTO baseline_salary VALUES (1027, 'Senior', 'QA Engineer', 900000, 1200000, 6.0, 8.99);
+
+-- Backend Developer
+INSERT INTO baseline_salary VALUES (1028, 'Junior', 'Backend Developer', 400000, 580000, 0.0, 2.99);
+INSERT INTO baseline_salary VALUES (1029, 'Mid', 'Backend Developer', 620000, 950000, 3.0, 5.99);
+INSERT INTO baseline_salary VALUES (1030, 'Senior', 'Backend Developer', 980000, 1350000, 6.0, 8.99);
 
 
 ----candidates inserts
@@ -336,5 +235,58 @@ INSERT INTO candidates VALUES (78, 'Tarun', 'Verma', 'tarun.verma@gmail.com', 99
 INSERT INTO candidates VALUES (79, 'Isha', 'Gupta', 'isha.gupta@gmail.com', 9865483219, TO_DATE('2004-03-18','YYYY-MM-DD'), 'DL', 'TS09DL3344556', 'B.Tech', 'IIIT Hyderabad', 8.7, 'Hyderabad', 'India', NULL, NULL, 46000, 0, 'Angular', 'In Progress', NULL, 'Active', 'F','Software Engineer');
 INSERT INTO candidates VALUES (80, 'Yash', 'Malhotra', 'yash.malhotra@gmail.com', 7876543220, TO_DATE('2005-01-25','YYYY-MM-DD'), 'Aadhar', 112233445566, 'B.Com', 'Mumbai University', 8.2, 'Mumbai', 'India', NULL, NULL, 41000, 0, 'Java', 'In Progress', NULL, 'Active', 'M','Software Engineer');
 
-SELECT * FROM candidates ;
---TRUNCATE TABLE candidates;
+--candidate to emp conversion
+execute  promote_candidate_to_employee(1, 3, 680000);
+execute  promote_candidate_to_employee(2, 3, 980000);
+execute  promote_candidate_to_employee(3, 3, 680000);
+execute  promote_candidate_to_employee(5, 3, 610000);
+execute  promote_candidate_to_employee(6, 3, 650000);
+execute  promote_candidate_to_employee(7, 3, 610000);
+execute  promote_candidate_to_employee(8, 9, 720000);
+execute  promote_candidate_to_employee(9, 3, 960000);
+execute  promote_candidate_to_employee(10, 9, 500000);
+execute  promote_candidate_to_employee(11, 3, 640000);
+execute  promote_candidate_to_employee(12, 3, 1030000);
+execute  promote_candidate_to_employee(13, 3, 660000);
+execute  promote_candidate_to_employee(14, 5, 760000);
+execute  promote_candidate_to_employee(15, 3, 760000);
+execute  promote_candidate_to_employee(16, 5, 800000);
+execute  promote_candidate_to_employee(17, 2, 610000);
+execute  promote_candidate_to_employee(18, 9, 710000);
+execute  promote_candidate_to_employee(19, 3, 1010000);
+execute  promote_candidate_to_employee(20, 6, 620000);
+execute  promote_candidate_to_employee(21, 3, 1020000);
+execute  promote_candidate_to_employee(22, 2, 410000);
+execute  promote_candidate_to_employee(23, 9, 810000);
+execute  promote_candidate_to_employee(24, 1, 600000);
+execute  promote_candidate_to_employee(25, 3, 960000);
+execute  promote_candidate_to_employee(26, 3, 620000);
+execute  promote_candidate_to_employee(28, 3, 670000);
+execute  promote_candidate_to_employee(29, 3, 980000);
+execute  promote_candidate_to_employee(30, 9, 760000);
+EXECUTE promote_candidate_to_employee(31, 3, 500000);
+EXECUTE promote_candidate_to_employee(32, 3, 480000);
+EXECUTE promote_candidate_to_employee(33, 3, 450000);
+EXECUTE promote_candidate_to_employee(34, 1, 500000);
+EXECUTE promote_candidate_to_employee(35, 3, 580000);
+EXECUTE promote_candidate_to_employee(36, 2, 450000);
+EXECUTE promote_candidate_to_employee(37, 3, 700000);
+EXECUTE promote_candidate_to_employee(38, 8, 420000);
+EXECUTE promote_candidate_to_employee(39, 3, 800000);
+EXECUTE promote_candidate_to_employee(40, 6, 520000);
+EXECUTE promote_candidate_to_employee(41, 1, 550000); 
+EXECUTE promote_candidate_to_employee(42, 8, 600000);  
+EXECUTE promote_candidate_to_employee(43, 3, 600000); 
+EXECUTE promote_candidate_to_employee(44, 6, 800000); 
+EXECUTE promote_candidate_to_employee(45, 3, 400000);  
+EXECUTE promote_candidate_to_employee(46, 3, 650000);  
+EXECUTE promote_candidate_to_employee(47, 3, 480000);  
+EXECUTE promote_candidate_to_employee(48, 6, 500000); 
+EXECUTE promote_candidate_to_employee(49, 8, 750000);  
+EXECUTE promote_candidate_to_employee(50, 8, 450000); 
+EXECUTE promote_candidate_to_employee(51, 1, 500000);  
+EXECUTE promote_candidate_to_employee(52, 6, 700000); 
+EXECUTE promote_candidate_to_employee(53, 3, 550000);  
+EXECUTE promote_candidate_to_employee(54, 3, 900000); 
+
+
