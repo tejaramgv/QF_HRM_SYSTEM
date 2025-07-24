@@ -23,8 +23,8 @@ CREATE TABLE candidates (
     highest_degree      VARCHAR2(30) NOT NULL,
     university          VARCHAR2(50) NOT NULL,
     cgpa                NUMBER NOT NULL,
-    city_id             NUMBER REFERENCES master_data(masterdata_id),
-    country_id          NUMBER REFERENCES master_data(masterdata_id),
+    city          VARCHAR2(30),
+    country        VARCHAR2(30),
     last_employer       VARCHAR2(50),
     last_salary         NUMBER,
     expected_salary     NUMBER,
@@ -43,9 +43,9 @@ CREATE TABLE employee (
     first_name       VARCHAR2(30) NOT NULL,
     last_name        VARCHAR2(30) NOT NULL,
     salary           NUMBER NOT NULL,
-    department_id    NUMBER REFERENCES master_data(masterdata_id),
+    department_id    NUMBER REFERENCES department(department_id),
     date_of_joining  DATE,
-    band_id          NUMBER REFERENCES master_data(masterdata_id),
+    band_id          NUMBER,
     manager_id       NUMBER,
     employee_status  VARCHAR2(15) DEFAULT 'Active' CHECK (employee_status IN ('Active', 'Inactive')),
     exit_date        DATE,
@@ -59,12 +59,13 @@ WHERE table_name = 'EMPLOYEE'
   AND constraint_type = 'R'
 ;
 
-ALTER TABLE employees
-DROP CONSTRAINT SYS_C008336;
+ALTER TABLE employee
+ADD CONSTRAINT fk_emp_department
+FOREIGN KEY (department_id)
+REFERENCES department(department_id);
 
 ALTER TABLE employee
 ADD role VARCHAR2(100) NOT NULL;
-
 
 
 -- Employee Leaves Table (Composite PK)
