@@ -44,5 +44,27 @@ BEGIN
     IF :NEW.city_id IS NOT NULL AND NOT master_data_validator.is_valid(:NEW.city_id, 'CITY') THEN
         RAISE_APPLICATION_ERROR(-20013, 'Invalid CITY ID.');
     END IF;
+    
 END;
 /
+
+CREATE OR REPLACE TRIGGER trg_check_job_title
+BEFORE INSERT OR UPDATE ON candidates
+FOR EACH ROW
+DECLARE
+    v_role master_data.masterdata_value%TYPE;
+BEGIN
+    SELECT masterdata_value
+    INTO v_role
+    FROM master_data
+    WHERE masterdata_type = 'JOB_TITLE'
+      AND UPPER(masterdata_value) = UPPER(:NEW.role);
+      
+    :NEW.role := v_role;
+    
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20014, 'Invalid job title. It must exist in master_data.');
+END;
+/
+
