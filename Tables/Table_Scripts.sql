@@ -77,12 +77,12 @@ ADD role VARCHAR2(100) NOT NULL;
 
 -- Employee Leaves Table (Composite PK)
 CREATE TABLE employee_leaves (
-    employee_id   NUMBER REFERENCES employees(employee_id),
-    leaves_type   VARCHAR2(15) CHECK (leaves_type IN ('Sick', 'Casual', 'Annual', 'Maternity', 'Paternity', 'Unpaid')),
+    employee_id   NUMBER REFERENCES employee(employee_id),
+    leaves_type   VARCHAR2(15) CHECK (LOWER(leaves_type) IN ('sick', 'casual', 'annual', 'maternity', 'paternity', 'unpaid')),
     start_date    DATE,
     end_date      DATE,
-    status        VARCHAR2(20) CHECK (status IN ('Pending', 'Approved', 'Rejected')),
-    approved_by   NUMBER REFERENCES employees(employee_id),
+    status        VARCHAR2(20) CHECK (LOWER(status) IN ('pending', 'approved', 'rejected')),
+    approved_by   NUMBER REFERENCES employee(employee_id),
     PRIMARY KEY (employee_id, start_date)
 );
 
@@ -153,12 +153,26 @@ CREATE TABLE employee_exit (
 CREATE TABLE department (
     department_id   NUMBER PRIMARY KEY,
     department_name VARCHAR2(100) NOT NULL,
-    manager_id      NUMBER REFERENCES employees(employee_id),
+    manager_id      NUMBER REFERENCES,
     city_id         NUMBER REFERENCES master_data(masterdata_id)
 );
 
---drop table department;
+ALTER TABLE department
+ADD CONSTRAINT fk_emp_department
+FOREIGN KEY (manager_id)
+REFERENCES employee(employee_id);
 
+--SELECT a.table_name, a.constraint_name
+--FROM user_constraints a
+--JOIN user_constraints b
+--  ON a.r_constraint_name = b.constraint_name
+--WHERE b.table_name = 'EMPLOYEE';
+
+
+--drop table department;
+--drop table employee;
+--drop table employee_leaves;
+drop table candidates;
 ALTER TABLE candidates ADD gender CHAR(1) CHECK (gender IN ('M','F'));
 ALTER TABLE employee ADD gender CHAR(1) CHECK (gender IN ('M','F'));
 
@@ -195,3 +209,6 @@ ALTER TABLE candidates MODIFY Interview_Status VARCHAR2(20) DEFAULT 'In Progress
 
 drop table employee;
 --truncate table candidates
+
+select * from employee;
+select * from candidates;

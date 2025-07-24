@@ -56,3 +56,11 @@ BEGIN
 END;
 
 
+select * from employee;
+
+EXEC apply_leave(1072, 'Sick', DATE '2025-07-25', DATE '2025-07-27');
+
+
+select * from employee_leaves;
+
+EXEC process_leave(1072, DATE '2025-07-25',1071,'APPROVE');
