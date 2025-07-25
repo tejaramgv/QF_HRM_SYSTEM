@@ -11,7 +11,7 @@ CREATE OR REPLACE PACKAGE BODY master_data_validator AS
     BEGIN
         SELECT COUNT(*) INTO ln_cnt
         FROM master_data
-        WHERE LOWER(masterdata_value) = LOWER(p_value)
+        WHERE masterdata_value = p_value
           AND masterdata_type = p_type;
 
         RETURN ln_cnt > 0;
@@ -82,7 +82,7 @@ BEGIN
     INTO v_role
     FROM master_data
     WHERE masterdata_type = 'JOB_TITLE'
-      AND UPPER(masterdata_value) = UPPER(:NEW.role);
+      AND masterdata_value = :NEW.role;
       
     :NEW.role := v_role;
     

@@ -19,7 +19,7 @@ CREATE TABLE candidates (
     phone               NUMBER(10) NOT NULL,
     dob                 DATE NOT NULL,
     id_proof_type       VARCHAR2(30) CHECK (id_proof_type IN ('Passport', 'Aadhar', 'DL')),
-    id_proof_num        NUMBER,
+    id_proof_num        VARCHAR2(100),
     highest_degree      VARCHAR2(30) NOT NULL,
     university          VARCHAR2(50) NOT NULL,
     cgpa                NUMBER NOT NULL,
@@ -34,7 +34,6 @@ CREATE TABLE candidates (
     rejection_reason    VARCHAR2(200),
     status              VARCHAR2(15) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'))
 );
-
 
 -- Employees Table
 CREATE TABLE employee (
