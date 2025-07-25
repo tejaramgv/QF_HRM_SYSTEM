@@ -23,9 +23,6 @@ PROCEDURE add_candidate (
     p_expected_salary     IN NUMBER DEFAULT NULL,
     p_years_of_experience IN NUMBER DEFAULT NULL,
     p_skills              IN VARCHAR2 DEFAULT NULL,
-    p_interview_status    IN VARCHAR2 DEFAULT NULL,
-    p_rejection_reason    IN VARCHAR2 DEFAULT NULL,
-    p_status              IN VARCHAR2 DEFAULT 'Active',
     p_gender              IN CHAR DEFAULT NULL,
     p_role                IN VARCHAR2 DEFAULT NULL
 );
@@ -51,10 +48,11 @@ PROCEDURE update_candidate (
     p_skills              IN VARCHAR2 DEFAULT NULL,
     p_interview_status    IN VARCHAR2 DEFAULT NULL,
     p_rejection_reason    IN VARCHAR2 DEFAULT NULL,
-    p_status              IN VARCHAR2 DEFAULT NULL,
     p_gender              IN CHAR DEFAULT NULL,
     p_role                IN VARCHAR2 DEFAULT NULL
 );
+
+
 
 PROCEDURE remove_candidate (
     p_candidate_id IN NUMBER
@@ -99,9 +97,6 @@ PROCEDURE add_candidate (
     p_expected_salary     IN NUMBER DEFAULT NULL,
     p_years_of_experience IN NUMBER DEFAULT NULL,
     p_skills              IN VARCHAR2 DEFAULT NULL,
-    p_interview_status    IN VARCHAR2 DEFAULT NULL,
-    p_rejection_reason    IN VARCHAR2 DEFAULT NULL,
-    p_status              IN VARCHAR2 DEFAULT 'Active',
     p_gender              IN CHAR DEFAULT NULL,
     p_role                IN VARCHAR2 DEFAULT NULL
 )
@@ -114,14 +109,12 @@ BEGIN
         candidate_id, first_name, last_name, email, phone, dob,
         id_proof_type, id_proof_num, highest_degree, university,
         cgpa, city, country, last_employer, last_salary,
-        expected_salary, years_of_experience, skills,
-        interview_status, rejection_reason, status, gender, role
+        expected_salary, years_of_experience,skills,gender, role
     ) VALUES (
         ln_candidate_id, p_first_name, p_last_name, p_email, p_phone, p_dob,
         p_id_proof_type, p_id_proof_num, p_highest_degree, p_university,
         p_cgpa, p_city, p_country, p_last_employer, p_last_salary,
-        p_expected_salary, p_years_of_experience, p_skills,
-        p_interview_status, p_rejection_reason, p_status, p_gender, p_role
+        p_expected_salary, p_years_of_experience, p_skills,p_gender, p_role
     );
 
     DBMS_OUTPUT.PUT_LINE('Candidate inserted successfully with ID: ' || ln_candidate_id);
@@ -129,6 +122,7 @@ EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Error inserting candidate: ' || SQLERRM);
 END ADD_CANDIDATE;
+
 
 PROCEDURE update_candidate (
     p_candidate_id        IN NUMBER,
@@ -151,7 +145,6 @@ PROCEDURE update_candidate (
     p_skills              IN VARCHAR2 DEFAULT NULL,
     p_interview_status    IN VARCHAR2 DEFAULT NULL,
     p_rejection_reason    IN VARCHAR2 DEFAULT NULL,
-    p_status              IN VARCHAR2 DEFAULT NULL,
     p_gender              IN CHAR DEFAULT NULL,
     p_role                IN VARCHAR2 DEFAULT NULL
 )
@@ -178,8 +171,15 @@ BEGIN
         years_of_experience = NVL(p_years_of_experience, years_of_experience),
         skills              = NVL(p_skills, skills),
         interview_status    = NVL(p_interview_status, interview_status),
-        rejection_reason    = NVL(p_rejection_reason, rejection_reason),
-        status              = NVL(p_status, status),
+        rejection_reason    = CASE 
+                                WHEN p_interview_status = 'Rejected' THEN NVL(p_rejection_reason, rejection_reason)
+                                ELSE rejection_reason 
+                              END,
+        status              = CASE 
+                                WHEN p_interview_status = 'Rejected' THEN 'Inactive'
+                                WHEN p_interview_status = 'Selected' THEN 'Active'
+                                ELSE status 
+                              END,
         gender              = NVL(p_gender, gender),
         role                = NVL(p_role, role)
     WHERE candidate_id = p_candidate_id;
@@ -195,7 +195,7 @@ BEGIN
 EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Error occurred: ' || SQLERRM);
-END UPDATE_CANDIDATE;
+END update_candidate;
 
 
 PROCEDURE remove_candidate (
@@ -415,7 +415,7 @@ BEGIN
     ) VALUES (
         v_new_emp_id, p_candidate_id, v_first_name, v_last_name,
         v_salary, p_department_id, SYSDATE, v_band_id,
-        v_manager_id, 'Active', 0, v_gender, v_role
+        v_manager_id, 'Active', 24, v_gender, v_role
     );
 
     DBMS_OUTPUT.PUT_LINE('Candidate ' || p_candidate_id || ' promoted to Employee ID ' || v_new_emp_id);
@@ -473,7 +473,7 @@ BEGIN
     IF :NEW.cgpa < 0 OR :NEW.cgpa > 10 THEN
         RAISE_APPLICATION_ERROR(-20006, 'CGPA must be between 0 and 10.');
     END IF;
-
+    
     IF :NEW.last_salary IS NOT NULL AND :NEW.expected_salary IS NOT NULL THEN
         IF :NEW.expected_salary < :NEW.last_salary THEN
             RAISE_APPLICATION_ERROR(-20007, 'Expected salary must be greater than or equal to last salary.');
@@ -481,4 +481,4 @@ BEGIN
     END IF;
 END;
 /
-
+select * from employee;
