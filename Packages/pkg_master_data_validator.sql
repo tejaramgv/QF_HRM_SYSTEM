@@ -14,7 +14,7 @@ CREATE OR REPLACE PACKAGE BODY master_data_validator AS
     BEGIN
         SELECT COUNT(*) INTO ln_cnt
         FROM master_data
-        WHERE LOWER(masterdata_value) = LOWER(p_value)
+        WHERE UPPER(masterdata_value) = UPPER(p_value)
           AND masterdata_type = p_type;
 
         RETURN ln_cnt > 0;
@@ -112,11 +112,6 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20010, 'Invalid BAND.');
     END IF;
 
-    -- Validate SKILL from master_data (only if skill is not null)
-    IF :NEW.skill IS NOT NULL AND NOT master_data_validator.is_valid(:NEW.skill, 'SKILL') THEN
-        RAISE_APPLICATION_ERROR(-20011, 'Invalid SKILL.');
-    END IF;
-    
     -- Validate JOB_TITLE
     IF :NEW.job_title IS NOT NULL AND NOT master_data_validator.is_valid(:NEW.job_title, 'JOB_TITLE') THEN
         RAISE_APPLICATION_ERROR(-20012, 'Invalid JOB TITLE.');
@@ -138,7 +133,6 @@ BEGIN
     FROM master_data
     WHERE masterdata_type = 'JOB_TITLE'
       AND UPPER(masterdata_value) = UPPER(:NEW.role);
-
     -- Standardize inserted value
     :NEW.role := v_job_title;
 

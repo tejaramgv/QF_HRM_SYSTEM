@@ -485,7 +485,7 @@ BEGIN
     IF :NEW.cgpa < 0 OR :NEW.cgpa > 10 THEN
         RAISE_APPLICATION_ERROR(-20006, 'CGPA must be between 0 and 10.');
     END IF;
-
+    
     IF :NEW.last_salary IS NOT NULL AND :NEW.expected_salary IS NOT NULL THEN
         IF :NEW.expected_salary < :NEW.last_salary THEN
             RAISE_APPLICATION_ERROR(-20007, 'Expected salary must be greater than or equal to last salary.');
@@ -498,3 +498,4 @@ BEGIN
 
 END;
 /
+select * from employee;

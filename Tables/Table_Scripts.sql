@@ -19,7 +19,7 @@ CREATE TABLE candidates (
     phone               NUMBER(10) NOT NULL,
     dob                 DATE NOT NULL,
     id_proof_type       VARCHAR2(30) CHECK (id_proof_type IN ('Passport', 'Aadhar', 'DL')),
-    id_proof_num        NUMBER,
+    id_proof_num        VARCHAR2(100),
     highest_degree      VARCHAR2(30) NOT NULL,
     university          VARCHAR2(50) NOT NULL,
     cgpa                NUMBER NOT NULL,
@@ -34,7 +34,6 @@ CREATE TABLE candidates (
     rejection_reason    VARCHAR2(200),
     status              VARCHAR2(15) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'))
 );
-
 
 -- Employees Table
 CREATE TABLE employee (
@@ -85,6 +84,7 @@ CREATE TABLE employee_leaves (
     approved_by   NUMBER REFERENCES employee(employee_id),
     PRIMARY KEY (employee_id, start_date)
 );
+
 
 -- Employee Attendance Table
 CREATE TABLE employee_attendance (
@@ -173,11 +173,16 @@ REFERENCES employee(employee_id);
 --drop table employee;
 --drop table employee_leaves;
 drop table candidates;
+<<<<<<< HEAD
 ALTER TABLE candidates ADD gender CHAR(1) CHECK (gender IN ('M','F'));
 ALTER TABLE employee ADD gender CHAR(1) CHECK (gender IN ('M','F'));
 ALTER TABLE employee MODIFY gender CHAR(1) NOT NULL;
 
 ALTER TABLE candidates MODIFY gender CHAR(1) NOT NULL;
+=======
+ALTER TABLE candidates MODIFY country NOT NULL;
+ALTER TABLE employee MODIFY gender NOT NULL;
+>>>>>>> 59b0c584d41afb1e76881e61665545c5c1bb5806
 
 SELECT constraint_name
 FROM user_constraints

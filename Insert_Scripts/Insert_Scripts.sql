@@ -88,16 +88,7 @@ INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, paren
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (86, 'PERFORMANCE_RATING', '5', NULL);
 
 
-SELECT a.table_name AS child_table,
-       a.constraint_name AS foreign_key_name
-FROM user_constraints a
-JOIN user_constraints b ON a.r_constraint_name = b.constraint_name
-WHERE a.constraint_type = 'R'
-  AND b.table_name = 'MASTER_DATA';
 
-
-ALTER TABLE Employee ENABLE CONSTRAINT SYS_C008646;
-ALTER TABLE DEPARTMENT ENABLE CONSTRAINT SYS_C008598;
 
 --TRUNCATE TABLE master_data;
 --insert data into departments
@@ -248,7 +239,6 @@ INSERT INTO candidates VALUES (77, 'Deepika', 'Sharma', 'deepika.sharma@gmail.co
 INSERT INTO candidates VALUES (78, 'Tarun', 'Verma', 'tarun.verma@gmail.com', 9976543218, TO_DATE('2002-06-05','YYYY-MM-DD'), 'Passport', 'M5544933', 'B.Sc', 'JNTU', 7.6, 'Hyderabad', 'India', NULL, NULL, 43000, 0, 'DevOps', 'In Progress', NULL, 'Active', 'M','Devops Engineer');
 INSERT INTO candidates VALUES (79, 'Isha', 'Gupta', 'isha.gupta@gmail.com', 9865483219, TO_DATE('2004-03-18','YYYY-MM-DD'), 'DL', 'TS09DL3344556', 'B.Tech', 'IIIT Hyderabad', 8.7, 'Hyderabad', 'India', NULL, NULL, 46000, 0, 'Angular', 'In Progress', NULL, 'Active', 'F','Software Engineer');
 INSERT INTO candidates VALUES (80, 'Yash', 'Malhotra', 'yash.malhotra@gmail.com', 7876543220, TO_DATE('2005-01-25','YYYY-MM-DD'), 'Aadhar', 112233445566, 'B.Com', 'Mumbai University', 8.2, 'Mumbai', 'India', NULL, NULL, 41000, 0, 'Java', 'In Progress', NULL, 'Active', 'M','Software Engineer');
-INSERT INTO candidates VALUES (81, 'Yash', 'Malhotra', 'yash.maalhotra@gmail.com', 7876543020, TO_DATE('2005-01-25','YYYY-MM-DD'), 'Aadhar', 112233445066, 'B.Com', 'Mumbai University', 8.2, 'Mumbai', 'India', NULL, NULL, 41000, 0, 'Java', 'In Progress', NULL, 'Active', 'M','Devops Engineer');
 
 --candidate to emp conversion
 execute  source_requirement.promote_candidate_to_employee(1, 3, 680000);
@@ -304,7 +294,6 @@ EXECUTE source_requirement.promote_candidate_to_employee(52, 6, 700000);
 EXECUTE source_requirement.promote_candidate_to_employee(53, 3, 550000);  
 EXECUTE source_requirement.promote_candidate_to_employee(54, 3, 900000); 
 
---UPDATE candidates set Interview_Status='Selected' WHERE candidate_id between 1 and 54;
 SELECT * FROM Employee;
 --TRUNCATE TABLE candidates;
 --TRUNCATE TABLE Employee;
