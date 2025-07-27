@@ -83,21 +83,21 @@ PROCEDURE add_candidate (
     p_first_name          IN VARCHAR2 DEFAULT NULL,
     p_last_name           IN VARCHAR2 DEFAULT NULL,
     p_email               IN VARCHAR2 DEFAULT NULL,
-    p_phone               IN NUMBER DEFAULT NULL,
-    p_dob                 IN DATE DEFAULT NULL,
+    p_phone               IN NUMBER   DEFAULT NULL,
+    p_dob                 IN DATE     DEFAULT NULL,
     p_id_proof_type       IN VARCHAR2 DEFAULT NULL,
     p_id_proof_num        IN VARCHAR2 DEFAULT NULL,
     p_highest_degree      IN VARCHAR2 DEFAULT NULL,
     p_university          IN VARCHAR2 DEFAULT NULL,
-    p_cgpa                IN NUMBER DEFAULT NULL,
+    p_cgpa                IN NUMBER   DEFAULT NULL,
     p_city                IN VARCHAR2 DEFAULT NULL,
     p_country             IN VARCHAR2 DEFAULT NULL,
     p_last_employer       IN VARCHAR2 DEFAULT NULL,
-    p_last_salary         IN NUMBER DEFAULT NULL,
-    p_expected_salary     IN NUMBER DEFAULT NULL,
-    p_years_of_experience IN NUMBER DEFAULT NULL,
+    p_last_salary         IN NUMBER   DEFAULT NULL,
+    p_expected_salary     IN NUMBER   DEFAULT NULL,
+    p_years_of_experience IN NUMBER   DEFAULT NULL,
     p_skills              IN VARCHAR2 DEFAULT NULL,
-    p_gender              IN CHAR DEFAULT NULL,
+    p_gender              IN CHAR     DEFAULT NULL,
     p_role                IN VARCHAR2 DEFAULT NULL
 )
 AS
@@ -109,19 +109,21 @@ BEGIN
         candidate_id, first_name, last_name, email, phone, dob,
         id_proof_type, id_proof_num, highest_degree, university,
         cgpa, city, country, last_employer, last_salary,
-        expected_salary, years_of_experience,skills,gender, role
+        expected_salary, years_of_experience, skills, gender, role
     ) VALUES (
         ln_candidate_id, p_first_name, p_last_name, p_email, p_phone, p_dob,
         p_id_proof_type, p_id_proof_num, p_highest_degree, p_university,
         p_cgpa, p_city, p_country, p_last_employer, p_last_salary,
-        p_expected_salary, p_years_of_experience, p_skills,p_gender, p_role
+        p_expected_salary, p_years_of_experience, p_skills, p_gender, p_role
     );
 
-    DBMS_OUTPUT.PUT_LINE('Candidate inserted successfully with ID: ' || ln_candidate_id);
+    DBMS_OUTPUT.PUT_LINE('Success: Candidate added with ID ' || ln_candidate_id);
+
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Error inserting candidate: ' || SQLERRM);
-END ADD_CANDIDATE;
+        DBMS_OUTPUT.PUT_LINE('Error while adding candidate: ' || SQLERRM);
+END add_candidate;
+
 
 
 PROCEDURE update_candidate (
@@ -129,23 +131,23 @@ PROCEDURE update_candidate (
     p_first_name          IN VARCHAR2 DEFAULT NULL,
     p_last_name           IN VARCHAR2 DEFAULT NULL,
     p_email               IN VARCHAR2 DEFAULT NULL,
-    p_phone               IN NUMBER DEFAULT NULL,
-    p_dob                 IN DATE DEFAULT NULL,
+    p_phone               IN NUMBER   DEFAULT NULL,
+    p_dob                 IN DATE     DEFAULT NULL,
     p_id_proof_type       IN VARCHAR2 DEFAULT NULL,
     p_id_proof_num        IN VARCHAR2 DEFAULT NULL,
     p_highest_degree      IN VARCHAR2 DEFAULT NULL,
     p_university          IN VARCHAR2 DEFAULT NULL,
-    p_cgpa                IN NUMBER DEFAULT NULL,
+    p_cgpa                IN NUMBER   DEFAULT NULL,
     p_city                IN VARCHAR2 DEFAULT NULL,
     p_country             IN VARCHAR2 DEFAULT NULL,
     p_last_employer       IN VARCHAR2 DEFAULT NULL,
-    p_last_salary         IN NUMBER DEFAULT NULL,
-    p_expected_salary     IN NUMBER DEFAULT NULL,
-    p_years_of_experience IN NUMBER DEFAULT NULL,
+    p_last_salary         IN NUMBER   DEFAULT NULL,
+    p_expected_salary     IN NUMBER   DEFAULT NULL,
+    p_years_of_experience IN NUMBER   DEFAULT NULL,
     p_skills              IN VARCHAR2 DEFAULT NULL,
     p_interview_status    IN VARCHAR2 DEFAULT NULL,
     p_rejection_reason    IN VARCHAR2 DEFAULT NULL,
-    p_gender              IN CHAR DEFAULT NULL,
+    p_gender              IN CHAR     DEFAULT NULL,
     p_role                IN VARCHAR2 DEFAULT NULL
 )
 IS
@@ -187,24 +189,27 @@ BEGIN
     ln_rows_updated := SQL%ROWCOUNT;
 
     IF ln_rows_updated = 0 THEN
-        DBMS_OUTPUT.PUT_LINE('No record found with candidate_id = ' || p_candidate_id);
+        DBMS_OUTPUT.PUT_LINE('Notice: No candidate found with ID ' || p_candidate_id);
     ELSE
-        DBMS_OUTPUT.PUT_LINE(ln_rows_updated || ' record(s) updated successfully.');
+        DBMS_OUTPUT.PUT_LINE('Success: ' || ln_rows_updated || ' record(s) updated.');
     END IF;
 
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Error occurred: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('Error while updating candidate: ' || SQLERRM);
 END update_candidate;
+
 
 
 PROCEDURE remove_candidate (
     p_candidate_id IN NUMBER
 ) IS
     e_candidate_not_found EXCEPTION;
+    PRAGMA EXCEPTION_INIT(e_candidate_not_found, -20001);
+
     ln_count NUMBER;
 BEGIN
-    -- Check if candidate exists
+    -- Check existence
     SELECT COUNT(*) INTO ln_count
     FROM candidates
     WHERE candidate_id = p_candidate_id;
@@ -213,18 +218,18 @@ BEGIN
         RAISE e_candidate_not_found;
     END IF;
 
-    -- Delete candidate
+    -- Delete
     DELETE FROM candidates
     WHERE candidate_id = p_candidate_id;
 
-    DBMS_OUTPUT.PUT_LINE('Candidate with ID ' || p_candidate_id || ' removed successfully.');
+    DBMS_OUTPUT.PUT_LINE('Success: Candidate with ID ' || p_candidate_id || ' was removed.');
 
 EXCEPTION
     WHEN e_candidate_not_found THEN
-        DBMS_OUTPUT.PUT_LINE('Error: Candidate with ID ' || p_candidate_id || ' does not exist.');
+        DBMS_OUTPUT.PUT_LINE('Error: No candidate found with ID ' || p_candidate_id);
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
-END REMOVE_CANDIDATE;
+        DBMS_OUTPUT.PUT_LINE('Error while removing candidate: ' || SQLERRM);
+END remove_candidate;
 
 
 PROCEDURE list_candidates (
@@ -256,19 +261,20 @@ BEGIN
         FETCH c_cand INTO r_cand;
         EXIT WHEN c_cand%NOTFOUND;
 
-        DBMS_OUTPUT.PUT_LINE('Candidate ID   : ' || r_cand.candidate_id);
-        DBMS_OUTPUT.PUT_LINE('Name           : ' || r_cand.first_name|| ' '||r_cand.last_name);
-        DBMS_OUTPUT.PUT_LINE('Country        : ' || NVL(r_cand.country, 'N/A'));
-        DBMS_OUTPUT.PUT_LINE('City           : ' || NVL(r_cand.city, 'N/A'));
-        DBMS_OUTPUT.PUT_LINE('Skill          : ' || r_cand.skills);
-        DBMS_OUTPUT.PUT_LINE('Interview Status: ' || r_cand.interview_status);
-        DBMS_OUTPUT.PUT_LINE('-----------------------------');
+        DBMS_OUTPUT.PUT_LINE('--- Candidate Details ---');
+        DBMS_OUTPUT.PUT_LINE('Candidate ID     : ' || r_cand.candidate_id);
+        DBMS_OUTPUT.PUT_LINE('Name             : ' || r_cand.first_name || ' ' || r_cand.last_name);
+        DBMS_OUTPUT.PUT_LINE('Country          : ' || NVL(r_cand.country, 'N/A'));
+        DBMS_OUTPUT.PUT_LINE('City             : ' || NVL(r_cand.city, 'N/A'));
+        DBMS_OUTPUT.PUT_LINE('Skill Set        : ' || NVL(r_cand.skills, 'N/A'));
+        DBMS_OUTPUT.PUT_LINE('Interview Status : ' || NVL(r_cand.interview_status, 'N/A'));
+        DBMS_OUTPUT.PUT_LINE('------------------------------');
     END LOOP;
     CLOSE c_cand;
 
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('Error occurred while listing candidates: ' || SQLERRM);
 END;
 
 
@@ -281,32 +287,34 @@ IS
     r_cand candidates%ROWTYPE;
     e_invalid_section EXCEPTION;
 BEGIN
+    -- Step 1: Fetch candidate details
     SELECT * INTO r_cand
     FROM candidates
     WHERE candidate_id = p_candidate_id;
 
-    CASE UPPER(p_section)
+    -- Step 2: Display details based on requested section
+    CASE UPPER(TRIM(p_section))
         WHEN 'PERSONAL' THEN
             DBMS_OUTPUT.PUT_LINE('--- Personal Details ---');
-            DBMS_OUTPUT.PUT_LINE('Name: ' || r_cand.first_name ||' '||r_cand.last_name);
-            DBMS_OUTPUT.PUT_LINE('ID Proof Type: ' || r_cand.id_proof_type);
-            DBMS_OUTPUT.PUT_LINE('ID Proof Number: ' || r_cand.id_proof_num);
-            DBMS_OUTPUT.PUT_LINE('Location: ' || r_cand.city);
-            DBMS_OUTPUT.PUT_LINE('Country: ' || r_cand.country);
+            DBMS_OUTPUT.PUT_LINE('Name            : ' || r_cand.first_name || ' ' || r_cand.last_name);
+            DBMS_OUTPUT.PUT_LINE('ID Proof Type   : ' || r_cand.id_proof_type);
+            DBMS_OUTPUT.PUT_LINE('ID Proof Number : ' || r_cand.id_proof_num);
+            DBMS_OUTPUT.PUT_LINE('Location        : ' || r_cand.city);
+            DBMS_OUTPUT.PUT_LINE('Country         : ' || r_cand.country);
 
         WHEN 'ACADEMIC' THEN
             DBMS_OUTPUT.PUT_LINE('--- Academic Details ---');
-            DBMS_OUTPUT.PUT_LINE('Highest Degree: ' || r_cand.highest_degree);
-            DBMS_OUTPUT.PUT_LINE('University: ' || r_cand.university);
-            DBMS_OUTPUT.PUT_LINE('CGPA: ' || r_cand.cgpa);
+            DBMS_OUTPUT.PUT_LINE('Highest Degree  : ' || r_cand.highest_degree);
+            DBMS_OUTPUT.PUT_LINE('University      : ' || r_cand.university);
+            DBMS_OUTPUT.PUT_LINE('CGPA            : ' || r_cand.cgpa);
 
         WHEN 'PROFESSIONAL' THEN
             DBMS_OUTPUT.PUT_LINE('--- Professional Details ---');
-            DBMS_OUTPUT.PUT_LINE('Last Employer: ' || r_cand.last_employer);
-            DBMS_OUTPUT.PUT_LINE('Last Salary: ' || r_cand.last_salary);
-            DBMS_OUTPUT.PUT_LINE('Expected Salary: ' || r_cand.expected_salary);
-            DBMS_OUTPUT.PUT_LINE('Years of Experience: ' || r_cand.years_of_experience);
-            DBMS_OUTPUT.PUT_LINE('Skill Set: ' || r_cand.skills);
+            DBMS_OUTPUT.PUT_LINE('Last Employer   : ' || r_cand.last_employer);
+            DBMS_OUTPUT.PUT_LINE('Last Salary     : ' || NVL(TO_CHAR(r_cand.last_salary), 'N/A'));
+            DBMS_OUTPUT.PUT_LINE('Expected Salary : ' || NVL(TO_CHAR(r_cand.expected_salary), 'N/A'));
+            DBMS_OUTPUT.PUT_LINE('Experience (yrs): ' || r_cand.years_of_experience);
+            DBMS_OUTPUT.PUT_LINE('Skill Set       : ' || r_cand.skills);
 
         ELSE
             RAISE e_invalid_section;
@@ -314,14 +322,17 @@ BEGIN
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('Error: No candidate found with ID ' || p_candidate_id);
+        DBMS_OUTPUT.PUT_LINE('Error: No candidate found with ID ' || p_candidate_id || '.');
+
     WHEN e_invalid_section THEN
-        DBMS_OUTPUT.PUT_LINE('Error: Invalid section. Use PERSONAL, ACADEMIC, or PROFESSIONAL.');
+        DBMS_OUTPUT.PUT_LINE('Error: Invalid section "' || p_section || '". Use PERSONAL, ACADEMIC, or PROFESSIONAL.');
+
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Unexpected Error: ' || SQLERRM);
 END;
 
---CANDIDATE TO EMPLOYEE CONVERSION
+
+-- Promote a selected candidate to employee
 PROCEDURE promote_candidate_to_employee (
     p_candidate_id   IN NUMBER,
     p_department_id  IN NUMBER,
@@ -342,20 +353,21 @@ PROCEDURE promote_candidate_to_employee (
 BEGIN
     -- Step 1: Fetch candidate details
     SELECT first_name, last_name, skills, years_of_experience,
-           COALESCE(p_salary, expected_salary), gender, role,interview_status
-    INTO v_first_name, v_last_name, v_skill, v_exp, v_salary, v_gender, v_role,v_status
+           COALESCE(p_salary, expected_salary), gender, role, interview_status
+    INTO v_first_name, v_last_name, v_skill, v_exp, v_salary, v_gender, v_role, v_status
     FROM candidates
     WHERE candidate_id = p_candidate_id;
-    
-    IF v_status!='Selected' THEN
-        IF v_status='In Progress' THEN
-        RAISE_APPLICATION_ERROR(-20101, 'Candidate interview process is still in progress');
-        ELSE
-        RAISE_APPLICATION_ERROR(-20102, ' Candidate interview status is rejected, cannot promote to employee.');
-        END IF;
-    END IF;    
 
-    -- Step 2: Try to find matching band (strict experience match)
+    -- Step 1b: Validate interview status
+    IF v_status != 'Selected' THEN
+        IF v_status = 'In Progress' THEN
+            RAISE_APPLICATION_ERROR(-20101, 'Cannot promote: Candidate interview is still in progress.');
+        ELSE
+            RAISE_APPLICATION_ERROR(-20102, 'Cannot promote: Candidate interview was not successful.');
+        END IF;
+    END IF;
+
+    -- Step 2: Try to find a suitable band based on salary and experience
     BEGIN
         SELECT band_id
         INTO v_band_id
@@ -369,10 +381,10 @@ BEGIN
         v_band_found := TRUE;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            NULL; -- fall through to fallback logic
+            NULL; -- Try fallback logic
     END;
 
-    -- Step 2b: Fallback - if exp > max_exp and other conditions match
+    -- Step 2b: Fallback - if experience is beyond defined range
     IF NOT v_band_found THEN
         BEGIN
             SELECT band_id
@@ -388,11 +400,11 @@ BEGIN
             v_band_found := TRUE;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                RAISE_APPLICATION_ERROR(-20002, ' No suitable band found for candidate.');
+                RAISE_APPLICATION_ERROR(-20002, 'No suitable salary band found for the candidate''s role, experience, and salary.');
         END;
     END IF;
 
-    -- Step 3: Check for department manager
+    -- Step 3: Fetch department manager, if available
     BEGIN
         SELECT manager_id
         INTO v_manager_id
@@ -401,13 +413,13 @@ BEGIN
           AND manager_id IS NOT NULL;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            v_manager_id := NULL;
+            v_manager_id := NULL; -- Proceed without manager
     END;
 
     -- Step 4: Generate new employee ID
     SELECT employee_seq.NEXTVAL INTO v_new_emp_id FROM dual;
 
-    -- Step 5: Insert employee
+    -- Step 5: Insert new employee record
     INSERT INTO employee (
         employee_id, candidate_id, first_name, last_name,
         salary, department_id, date_of_joining, band_id,
@@ -418,24 +430,24 @@ BEGIN
         v_manager_id, 'Active', 24, v_gender, v_role
     );
 
-    DBMS_OUTPUT.PUT_LINE('Candidate ' || p_candidate_id || ' promoted to Employee ID ' || v_new_emp_id);
+    -- Output success message
+    DBMS_OUTPUT.PUT_LINE('Candidate ID ' || p_candidate_id || ' has been successfully promoted to Employee ID ' || v_new_emp_id || '.');
+    
     IF v_manager_id IS NULL THEN
-        DBMS_OUTPUT.PUT_LINE('No department manager assigned.');
+        DBMS_OUTPUT.PUT_LINE('Note: No department manager was assigned for department ID ' || p_department_id || '.');
     ELSE
         DBMS_OUTPUT.PUT_LINE('Assigned Manager ID: ' || v_manager_id);
     END IF;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Candidate ID not found.');
+        RAISE_APPLICATION_ERROR(-20001, 'Candidate not found. Please check the Candidate ID.');
     WHEN DUP_VAL_ON_INDEX THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Duplicate employee ID. Check sequence.');
+        RAISE_APPLICATION_ERROR(-20003, 'Duplicate employee ID encountered. Please verify the employee sequence.');
     WHEN OTHERS THEN
-        RAISE_APPLICATION_ERROR(-20099, 'Unexpected error: ' || SQLERRM);
+        RAISE_APPLICATION_ERROR(-20099, 'Unexpected error occurred: ' || SQLERRM);
 END;
-
 END;
-/
 
 --DROP SEQUENCE seq_candidate_id;
 
@@ -479,5 +491,10 @@ BEGIN
             RAISE_APPLICATION_ERROR(-20007, 'Expected salary must be greater than or equal to last salary.');
         END IF;
     END IF;
+    
+    IF :NEW.dob>sysdate THEN
+        RAISE_APPLICATION_ERROR(-20008, 'DOB Cannot be in future.');
+    END IF;
+
 END;
 /

@@ -144,7 +144,7 @@ BEGIN
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        RAISE_APPLICATION_ERROR(-20014, 'Invalid job title. It must exist in master_data.');
+        RAISE_APPLICATION_ERROR(-20014, 'Invalid job title. '||v_job_title||' does not exist in master_data.');
 END;
 /
 

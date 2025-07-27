@@ -175,6 +175,9 @@ REFERENCES employee(employee_id);
 drop table candidates;
 ALTER TABLE candidates ADD gender CHAR(1) CHECK (gender IN ('M','F'));
 ALTER TABLE employee ADD gender CHAR(1) CHECK (gender IN ('M','F'));
+ALTER TABLE employee MODIFY gender CHAR(1) NOT NULL;
+
+ALTER TABLE candidates MODIFY gender CHAR(1) NOT NULL;
 
 SELECT constraint_name
 FROM user_constraints
@@ -188,13 +191,13 @@ ALTER TABLE candidates
 RENAME COLUMN city_id TO city;
 
 ALTER TABLE candidates
-MODIFY city VARCHAR2(30);
+MODIFY city VARCHAR2(30) NOT NULL;
 
 ALTER TABLE candidates
 RENAME COLUMN country_id TO country;
 
 ALTER TABLE candidates
-MODIFY country VARCHAR2(30);
+MODIFY country VARCHAR2(30) NOT NULL;
 
 ALTER TABLE candidates
 ADD role VARCHAR2(100) NOT NULL;
@@ -203,7 +206,9 @@ ALTER TABLE candidates ADD CONSTRAINT uniq_id_proof UNIQUE (id_proof_num);
 
 ALTER TABLE candidates ADD CONSTRAINT unique_phone UNIQUE (phone);
 
-ALTER TABLE candidates MODIFY id_proof_num VARCHAR2(20);
+ALTER TABLE candidates MODIFY id_proof_num VARCHAR2(20) NOT NULL;
+
+ALTER TABLE candidates MODIFY id_proof_type VARCHAR2(20) NOT NULL;
 
 ALTER TABLE candidates MODIFY Interview_Status VARCHAR2(20) DEFAULT 'In Progress';
 
