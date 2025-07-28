@@ -635,31 +635,177 @@ NOCACHE;
 CREATE OR REPLACE TRIGGER trg_validate_candidates
 BEFORE INSERT OR UPDATE ON candidates
 FOR EACH ROW
+DECLARE
+    lv2_type VARCHAR2(20);
+    ln_age NUMBER;
 BEGIN
-    IF NOT REGEXP_LIKE(:NEW.email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Invalid email format.');
-    END IF;
-
-    IF :NEW.phone IS NULL OR LENGTH(:NEW.phone) != 10 OR SUBSTR(:NEW.phone, 1, 1) NOT IN ('6','7','8','9') THEN
-        RAISE_APPLICATION_ERROR(-20002, 'Invalid phone number. Must be 10 digits starting with 6-9.');
-    END IF;
-
-    IF :NEW.id_proof_type = 'Aadhar' THEN
-        IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[0-9]{12}$') THEN
-            RAISE_APPLICATION_ERROR(-20003, 'Invalid Aadhar number. Must be 12 digits.');
-        END IF;
-    ELSIF :NEW.id_proof_type = 'DL' THEN
-        IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Z0-9]{8,15}$') THEN
-            RAISE_APPLICATION_ERROR(-20004, 'Invalid DL number. Must be alphanumeric (8-15 characters).');
-        END IF;
-    ELSIF :NEW.id_proof_type = 'Passport' THEN
-        IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Z][0-9]{7}$') THEN
-            RAISE_APPLICATION_ERROR(-20005, 'Invalid Passport number. Format should be like A1234567.');
+    -------------------------------------------------------------------
+    -- First Name
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.first_name IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20001, 'First name is required.');
+    ELSIF :NEW.first_name IS NOT NULL THEN
+        IF LENGTH(:NEW.first_name) < 2 OR NOT REGEXP_LIKE(:NEW.first_name, '^[A-Za-z]+$') THEN
+            RAISE_APPLICATION_ERROR(-20002, 'First name must be at least 2 alphabetic characters.');
         END IF;
     END IF;
 
-    IF :NEW.cgpa < 0 OR :NEW.cgpa > 10 THEN
-        RAISE_APPLICATION_ERROR(-20006, 'CGPA must be between 0 and 10.');
+    -------------------------------------------------------------------
+    -- Last Name
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.last_name IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20003, 'Last name is required.');
+    ELSIF :NEW.last_name IS NOT NULL THEN
+        IF LENGTH(:NEW.last_name) < 2 OR NOT REGEXP_LIKE(:NEW.last_name, '^[A-Za-z]+$') THEN
+            RAISE_APPLICATION_ERROR(-20004, 'Last name must be at least 2 alphabetic characters.');
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- Email
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.email IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20005, 'Email is required.');
+    ELSIF :NEW.email IS NOT NULL THEN
+        IF NOT REGEXP_LIKE(:NEW.email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') THEN
+            RAISE_APPLICATION_ERROR(-20006, 'Invalid email format.');
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- Phone
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.phone IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20007, 'Phone number is required.');
+    ELSIF :NEW.phone IS NOT NULL THEN
+        IF LENGTH(:NEW.phone) != 10 OR SUBSTR(:NEW.phone, 1, 1) NOT IN ('6','7','8','9') THEN
+            RAISE_APPLICATION_ERROR(-20008, 'Phone must be 10 digits and start with 6-9.');
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- DOB
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.dob IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20009, 'Date of birth is required.');
+    ELSIF :NEW.dob IS NOT NULL THEN
+        SELECT TRUNC(MONTHS_BETWEEN(SYSDATE, :NEW.dob)/12) INTO ln_age FROM DUAL;
+        IF ln_age < 18 OR ln_age > 65 THEN
+            RAISE_APPLICATION_ERROR(-20010, 'Age must be between 18 and 65.');
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- Gender
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.gender IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20011, 'Gender is required.');
+    ELSIF :NEW.gender IS NOT NULL THEN
+        IF UPPER(:NEW.gender) NOT IN ('M', 'F') THEN
+            RAISE_APPLICATION_ERROR(-20012, 'Gender must be M or F.');
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- ID Proof Type
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.id_proof_type IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20013, 'ID proof type is required.');
+    ELSIF :NEW.id_proof_type IS NOT NULL THEN
+        lv2_type := UPPER(:NEW.id_proof_type);
+        IF lv2_type NOT IN ('AADHAR', 'PASSPORT', 'DL') THEN
+            RAISE_APPLICATION_ERROR(-20014, 'ID proof type must be Aadhar, Passport, or DL.');
+        END IF;
+    ELSE
+        SELECT id_proof_type INTO lv2_type FROM candidates WHERE candidate_id = :NEW.candidate_id;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- ID Proof Number
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.id_proof_num IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20015, 'ID proof number is required.');
+    ELSIF :NEW.id_proof_num IS NOT NULL THEN
+        IF lv2_type = 'AADHAR' THEN
+            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[0-9]{12}$') THEN
+                RAISE_APPLICATION_ERROR(-20016, 'Invalid Aadhar number. Must be 12 digits.');
+            END IF;
+        ELSIF lv2_type = 'PASSPORT' THEN
+            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Z][0-9]{7}$') THEN
+                RAISE_APPLICATION_ERROR(-20017, 'Invalid Passport number. Format: A1234567.');
+            END IF;
+      ELSIF lv2_type = 'DL' THEN
+            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Z0-9]{13,15}$') THEN
+                RAISE_APPLICATION_ERROR(-20004, 'Invalid DL number. Must be alphanumeric (13-15 characters).');
+            END IF;
+
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- City
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.city IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20019, 'City is required.');
+    ELSIF :NEW.city IS NOT NULL THEN
+        IF NOT REGEXP_LIKE(:NEW.city, '^[A-Za-z ]+$') THEN
+            RAISE_APPLICATION_ERROR(-20020, 'City must contain only alphabetic characters.');
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- Country
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.country IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20021, 'Country is required.');
+    ELSIF :NEW.country IS NOT NULL THEN
+        IF NOT REGEXP_LIKE(:NEW.country, '^[A-Za-z ]+$') THEN
+            RAISE_APPLICATION_ERROR(-20022, 'Country must contain only alphabetic characters.');
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- Highest Degree
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.highest_degree IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20023, 'Highest degree is required.');
+    ELSIF :NEW.highest_degree IS NOT NULL THEN
+        IF LENGTH(:NEW.highest_degree) < 2 THEN
+            RAISE_APPLICATION_ERROR(-20024, 'Highest degree must be at least 2 characters.');
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- University
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.university IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20025, 'University is required.');
+    ELSIF :NEW.university IS NOT NULL THEN
+        IF LENGTH(:NEW.university) < 2 THEN
+            RAISE_APPLICATION_ERROR(-20026, 'University must be at least 2 characters.');
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- CGPA
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.cgpa IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20027, 'CGPA is required.');
+    ELSIF :NEW.cgpa IS NOT NULL THEN
+        IF :NEW.cgpa < 0 OR :NEW.cgpa > 10 THEN
+            RAISE_APPLICATION_ERROR(-20028, 'CGPA must be between 0 and 10.');
+        END IF;
+    END IF;
+
+    -------------------------------------------------------------------
+    -- Skills
+    -------------------------------------------------------------------
+    IF INSERTING AND :NEW.skills IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20029, 'Skills are required.');
+    ELSIF :NEW.skills IS NOT NULL THEN
+        IF LENGTH(:NEW.skills) < 2 THEN
+            RAISE_APPLICATION_ERROR(-20030, 'Skills must be at least 2 characters.');
+        END IF;
     END IF;
     
     IF :NEW.last_salary IS NOT NULL AND :NEW.expected_salary IS NOT NULL THEN
@@ -667,11 +813,8 @@ BEGIN
             RAISE_APPLICATION_ERROR(-20007, 'Expected salary must be greater than or equal to last salary.');
         END IF;
     END IF;
-    
-    IF :NEW.dob>sysdate THEN
-        RAISE_APPLICATION_ERROR(-20008, 'DOB Cannot be in future.');
-    END IF;
 
 END;
+
 /
 select * from employee;
