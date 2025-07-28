@@ -206,7 +206,7 @@ BEGIN
     ln_rows_updated := SQL%ROWCOUNT;
 
     IF ln_rows_updated = 0 THEN
-        DBMS_OUTPUT.PUT_LINE('⚠️ Notice: No candidate found with ID ' || p_candidate_id || '.');
+        DBMS_OUTPUT.PUT_LINE('No candidate found with ID ' || p_candidate_id || '.');
     ELSE
         -- Build change message
         IF p_first_name IS NOT NULL AND p_first_name != old_row.first_name THEN
@@ -284,9 +284,9 @@ BEGIN
 
 EXCEPTION
     WHEN value_too_large THEN
-        DBMS_OUTPUT.PUT_LINE('Error: One of the values is too long for the database column. Please shorten it and try again.');
+        DBMS_OUTPUT.PUT_LINE('One of the values is too long for the database column. Please shorten it and try again.');
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('Notice: No candidate found with ID ' || p_candidate_id || '.');
+        DBMS_OUTPUT.PUT_LINE('No candidate found with ID ' || p_candidate_id || '.');
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Unexpected error: ' || SQLERRM);
 END update_candidate;
@@ -467,7 +467,7 @@ WHERE
     ELSE
         CASE UPPER(TRIM(p_section))
             WHEN 'PERSONAL' THEN
-                DBMS_OUTPUT.PUT_LINE(' PERSONAL INFORMATION');
+                DBMS_OUTPUT.PUT_LINE('PERSONAL INFORMATION');
                 DBMS_OUTPUT.PUT_LINE('Name            : ' || r_cand.first_name || ' ' || r_cand.last_name);
                 DBMS_OUTPUT.PUT_LINE('DOB             : ' || TO_CHAR(r_cand.dob, 'YYYY-MM-DD'));
                 DBMS_OUTPUT.PUT_LINE('Gender          : ' || NVL(r_cand.gender, 'N/A'));
@@ -483,7 +483,7 @@ WHERE
                 DBMS_OUTPUT.PUT_LINE('CGPA            : ' || r_cand.cgpa);
 
             WHEN 'PROFESSIONAL' THEN
-                DBMS_OUTPUT.PUT_LINE('💼 PROFESSIONAL INFORMATION');
+                DBMS_OUTPUT.PUT_LINE('PROFESSIONAL INFORMATION');
                 DBMS_OUTPUT.PUT_LINE('Last Employer   : ' || NVL(r_cand.last_employer, 'N/A'));
                 DBMS_OUTPUT.PUT_LINE('Last Salary     : ' || NVL(TO_CHAR(r_cand.last_salary), 'N/A'));
                 DBMS_OUTPUT.PUT_LINE('Expected Salary : ' || NVL(TO_CHAR(r_cand.expected_salary), 'N/A'));
