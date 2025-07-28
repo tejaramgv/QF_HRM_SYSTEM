@@ -153,7 +153,7 @@ CREATE TABLE employee_exit (
 CREATE TABLE department (
     department_id   NUMBER PRIMARY KEY,
     department_name VARCHAR2(100) NOT NULL,
-    manager_id      NUMBER REFERENCES,
+    manager_id      NUMBER,
     city_id         NUMBER REFERENCES master_data(masterdata_id)
 );
 
