@@ -803,8 +803,8 @@ BEGIN
     IF INSERTING AND :NEW.skills IS NULL THEN
         RAISE_APPLICATION_ERROR(-20029, 'Skills are required.');
     ELSIF :NEW.skills IS NOT NULL THEN
-        IF LENGTH(:NEW.skills) < 2 THEN
-            RAISE_APPLICATION_ERROR(-20030, 'Skills must be at least 2 characters.');
+        IF LENGTH(:NEW.skills) < 1 THEN
+            RAISE_APPLICATION_ERROR(-20030, 'Skills must be at least 1 characters.');
         END IF;
     END IF;
     
