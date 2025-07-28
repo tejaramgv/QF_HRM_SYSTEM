@@ -1,12 +1,12 @@
 BEGIN
   source_requirement.ADD_CANDIDATE(
-    p_first_name => 'Priya',
-    p_last_name => 'Narravula',
-    p_email => 'Tejaram@gmail.com',
-    p_phone => 7702425607,
-    p_dob => TO_DATE('2026-06-13', 'YYYY-MM-DD'),
-    p_id_proof_type => 'DL',
-    p_id_proof_num => '508370080A57',
+    p_first_name => 'Sridhar',
+    p_last_name => 'Reddy',
+    p_email => 'Tej@gmail.com',
+    p_phone => 7702425609,
+    p_dob => TO_DATE('2004-06-13', 'YYYY-MM-DD'),
+    p_id_proof_type => 'Passport',
+    p_id_proof_num => '123456778B',
     p_highest_degree => 'B.Tech',
     p_university => 'JNTU',
     p_cgpa => 8.9,
@@ -17,44 +17,43 @@ BEGIN
     p_expected_salary => 600000,
     p_years_of_experience => 2,
     p_skills => 'Python, SQL',
-    p_gender => 'F',
+    p_gender => 'dfvgb',
     p_role => 'Backend Developer'
   );
 END;
 /
-
-
+select * from candidates;
+set serveroutput on;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
-        p_candidate_id => 102,
-        p_interview_status=>'Rejected',
-        p_rejection_reason=>'Not Cleared'
+        p_candidate_id =>55,
+        p_interview_status=>'Selected',
+        p_first_name=>'Teja',
+        p_last_name=>'ram'
     );
 END;
 /
-BEGIN
-    source_requirement.REMOVE_CANDIDATE(80); 
-END;
+
 
 EXEC source_requirement.list_candidates;
-
-EXEC source_requirement.list_candidates(p_status=>'Rejected');
+set serveroutput on;
+EXEC source_requirement.list_candidates(p_status=>'Selected');
 
 EXEC source_requirement.list_candidates(p_country => 'India', p_skill => 'Java');
 
-EXEC source_requirement.list_candidates(p_status => 'Rejected');
+EXEC source_requirement.list_candidates(p_id_proof_type => 'aadhar');
+SET SERVEROUTPUT ON SIZE UNLIMITED;
 
 
-BEGIN
-    source_requirement.get_candidate_details(102, 'personal');
-END;
+EXEC source_requirement.get_candidate_details(p_candidate_id=>108,p_phone=>7702425607,p_section=>'personal');
 
 
-select * from employee;
-
-EXEC apply_leave(1072, 'Sick', DATE '2025-07-25', DATE '2025-07-27');
+EXEC promote_candidate_to_employee(108,4,700000);
 
 
-select * from employee_leaves;
+select * from candidates;
 
-EXEC process_leave(1072, DATE '2025-07-25',1071,'APPROVE');
+
+
+
+
