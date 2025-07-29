@@ -303,10 +303,10 @@ EXCEPTION
                 v_err_col VARCHAR2(100);
             BEGIN
                 v_err_col := REGEXP_SUBSTR(SQLERRM, '"[^"]+"\."[^"]+"\."([^"]+)"', 1, 1, NULL, 1);
-                DBMS_OUTPUT.PUT_LINE('❌ Error: The value you entered for "' || INITCAP(v_err_col) || '" is too long. Please enter a shorter value.');
+                DBMS_OUTPUT.PUT_LINE('Error: The value you entered for "' || INITCAP(v_err_col) || '" is too long. Please enter a shorter value.');
             END;
         ELSE
-            DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
+            DBMS_OUTPUT.PUT_LINE('Unexpected error: ' || SQLERRM);
         END IF;
 END update_candidate;
 
