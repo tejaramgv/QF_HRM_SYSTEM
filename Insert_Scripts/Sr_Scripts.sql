@@ -6,7 +6,7 @@ BEGIN
     p_phone => 7702425609,
     p_dob => TO_DATE('2004-06-13', 'YYYY-MM-DD'),
     p_id_proof_type => 'Passport',
-    p_id_proof_num => '123456778B',
+    p_id_proof_num => 'A1234567',
     p_highest_degree => 'B.Tech',
     p_university => 'JNTU',
     p_cgpa => 8.9,
@@ -17,7 +17,7 @@ BEGIN
     p_expected_salary => 600000,
     p_years_of_experience => 2,
     p_skills => 'Python, SQL',
-    p_gender => 'dfvgb',
+    p_gender => 'F',
     p_role => 'Backend Developer'
   );
 END;
@@ -81,7 +81,7 @@ EXEC source_requirement.list_candidates(p_id_proof_type => 'aadhar');
 SET SERVEROUTPUT ON SIZE UNLIMITED;
 
 
-EXEC source_requirement.get_candidate_details(p_candidate_id=>108,p_phone=>7702425607,p_section=>'personal');
+EXEC source_requirement.get_candidate_details(p_section=>'personal');
 
 
 EXEC promote_candidate_to_employee(108,4,700000);

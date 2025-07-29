@@ -109,6 +109,7 @@ CREATE TABLE baseline_salary (
     max_exp      NUMBER NOT NULL,
     UNIQUE (band, job_title, skill)
 );
+INSERT INTO baseline_salary VALUES (1001, 'Junior', 'Software Engineer', 400000, 600000, 0.0, 2.99);
 
 --drop table baseline_salary;
 -- Performance Reviews Table (Composite Unique)
