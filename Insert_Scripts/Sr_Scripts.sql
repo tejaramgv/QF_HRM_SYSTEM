@@ -86,6 +86,10 @@ EXEC source_requirement.get_candidate_details(p_candidate_id=>108,p_phone=>77024
 
 EXEC promote_candidate_to_employee(108,4,700000);
 
+EXEC pkg_emp_ops.add_department(p_department_name=>'pRocurement',p_city_id=>22);
+
+EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1037);
+
 
 select * from candidates;
 
