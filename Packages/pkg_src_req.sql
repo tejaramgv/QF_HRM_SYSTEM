@@ -119,16 +119,26 @@ BEGIN
         expected_salary, years_of_experience, skills, gender, role
     ) VALUES (
         ln_candidate_id, p_first_name, p_last_name, p_email, p_phone, p_dob,
-        p_id_proof_type, p_id_proof_num, p_highest_degree, p_university,
+        initcap(p_id_proof_type), p_id_proof_num, p_highest_degree, p_university,
         p_cgpa, p_city, p_country, p_last_employer, p_last_salary,
-        p_expected_salary, p_years_of_experience, p_skills, p_gender, p_role
+        p_expected_salary, p_years_of_experience, p_skills, initcap(p_gender), p_role
     );
 
     DBMS_OUTPUT.PUT_LINE('Success: Candidate added with ID ' || ln_candidate_id);
 
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Error while adding candidate: ' || SQLERRM);
+        IF SQLCODE = -12899 THEN
+            -- Extract column name from SQLERRM
+            DECLARE
+                v_err_col VARCHAR2(100);
+            BEGIN
+                v_err_col := REGEXP_SUBSTR(SQLERRM, '"[^"]+"\."[^"]+"\."([^"]+)"', 1, 1, NULL, 1);
+                DBMS_OUTPUT.PUT_LINE('❌ Error: The value you entered for "' || INITCAP(v_err_col) || '" is too long. Please enter a shorter value.');
+            END;
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
+        END IF;
 END add_candidate;
 
 
@@ -177,7 +187,7 @@ BEGIN
         email               = NVL(p_email, email),
         phone               = NVL(p_phone, phone),
         dob                 = NVL(p_dob, dob),
-        id_proof_type       = NVL(p_id_proof_type, id_proof_type),
+        id_proof_type       = NVL(initcap(p_id_proof_type), id_proof_type),
         id_proof_num        = NVL(p_id_proof_num, id_proof_num),
         highest_degree      = NVL(p_highest_degree, highest_degree),
         university          = NVL(p_university, university),
@@ -199,7 +209,7 @@ BEGIN
                                 WHEN p_interview_status = 'Selected' THEN 'Active'
                                 ELSE status 
                               END,
-        gender              = NVL(p_gender, gender),
+        gender              = NVL(initcap(p_gender), gender),
         role                = NVL(p_role, role)
     WHERE candidate_id = p_candidate_id;
 
@@ -224,7 +234,7 @@ BEGIN
         IF p_dob IS NOT NULL AND p_dob != old_row.dob THEN
             change_summary := change_summary || 'Date of birth updated to "' || TO_CHAR(p_dob, 'YYYY-MM-DD') || '". ';
         END IF;
-        IF p_id_proof_type IS NOT NULL AND p_id_proof_type != old_row.id_proof_type THEN
+        IF p_id_proof_type IS NOT NULL AND initcap(p_id_proof_type) != old_row.id_proof_type THEN
             change_summary := change_summary || 'ID proof type updated to "' || p_id_proof_type || '". ';
         END IF;
         IF p_id_proof_num IS NOT NULL AND p_id_proof_num != old_row.id_proof_num THEN
@@ -266,7 +276,7 @@ BEGIN
         IF p_rejection_reason IS NOT NULL AND p_rejection_reason != old_row.rejection_reason THEN
             change_summary := change_summary || 'Rejection reason updated to "' || p_rejection_reason || '". ';
         END IF;
-        IF p_gender IS NOT NULL AND p_gender != old_row.gender THEN
+        IF p_gender IS NOT NULL AND upper(p_gender) != upper(old_row.gender) THEN
             change_summary := change_summary || 'Gender updated to "' || p_gender || '". ';
         END IF;
         IF p_role IS NOT NULL AND p_role != old_row.role THEN
@@ -283,12 +293,21 @@ BEGIN
     END IF;
 
 EXCEPTION
-    WHEN value_too_large THEN
-        DBMS_OUTPUT.PUT_LINE('One of the values is too long for the database column. Please shorten it and try again.');
+    
     WHEN NO_DATA_FOUND THEN
         DBMS_OUTPUT.PUT_LINE('No candidate found with ID ' || p_candidate_id || '.');
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Unexpected error: ' || SQLERRM);
+        IF SQLCODE = -12899 THEN
+            -- Extract column name from SQLERRM
+            DECLARE
+                v_err_col VARCHAR2(100);
+            BEGIN
+                v_err_col := REGEXP_SUBSTR(SQLERRM, '"[^"]+"\."[^"]+"\."([^"]+)"', 1, 1, NULL, 1);
+                DBMS_OUTPUT.PUT_LINE('❌ Error: The value you entered for "' || INITCAP(v_err_col) || '" is too long. Please enter a shorter value.');
+            END;
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
+        END IF;
 END update_candidate;
 
 
