@@ -88,15 +88,22 @@ CREATE TABLE employee_leaves (
 
 -- Employee Attendance Table
 CREATE TABLE employee_attendance (
-    attendance_id    NUMBER PRIMARY KEY,
-    employee_id      NUMBER REFERENCES employees(employee_id),
-    attendance_date  DATE DEFAULT SYSDATE NOT NULL,
-    check_in_time    TIMESTAMP,
-    check_out_time   TIMESTAMP,
-    working_hours    NUMBER(4,2),
-    UNIQUE (employee_id, attendance_date)
+    attendance_id     NUMBER PRIMARY KEY,
+    employee_id       NUMBER NOT NULL,
+    attendance_date   DATE DEFAULT TRUNC(SYSDATE),
+    in_time           TIMESTAMP,
+    out_time          TIMESTAMP,
+    status            VARCHAR2(10) CHECK (LOWER(status) IN ('present', 'absent', 'leave')) NOT NULL,
+    
+    CONSTRAINT fk_attendance_employee
+        FOREIGN KEY (employee_id)
+        REFERENCES employee(employee_id),
+        
+    CONSTRAINT uq_attendance_employee_date
+        UNIQUE (employee_id, attendance_date)
 );
 
+drop table employee_attendance;
 -- Baseline Salary Table (Composite PK)
 CREATE TABLE baseline_salary (
     band_id      NUMBER PRIMARY KEY,
@@ -159,9 +166,10 @@ CREATE TABLE department (
 );
 
 ALTER TABLE department
-ADD CONSTRAINT fk_emp_department
+ADD CONSTRAINT fk_employee_department
 FOREIGN KEY (manager_id)
 REFERENCES employee(employee_id);
+
 
 --SELECT a.table_name, a.constraint_name
 --FROM user_constraints a
@@ -174,16 +182,13 @@ REFERENCES employee(employee_id);
 --drop table employee;
 --drop table employee_leaves;
 drop table candidates;
-<<<<<<< HEAD
 ALTER TABLE candidates ADD gender CHAR(1) CHECK (gender IN ('M','F'));
 ALTER TABLE employee ADD gender CHAR(1) CHECK (gender IN ('M','F'));
 ALTER TABLE employee MODIFY gender CHAR(1) NOT NULL;
 
 ALTER TABLE candidates MODIFY gender CHAR(1) NOT NULL;
-=======
 ALTER TABLE candidates MODIFY country NOT NULL;
 ALTER TABLE employee MODIFY gender NOT NULL;
->>>>>>> 59b0c584d41afb1e76881e61665545c5c1bb5806
 
 SELECT constraint_name
 FROM user_constraints
@@ -218,8 +223,10 @@ ALTER TABLE candidates MODIFY id_proof_type VARCHAR2(20) NOT NULL;
 
 ALTER TABLE candidates MODIFY Interview_Status VARCHAR2(20) DEFAULT 'In Progress';
 
-drop table employee;
---truncate table candidates
+--new alters--
+ALTER TABLE department
+ADD CONSTRAINT uniq_dept_city UNIQUE (department_name, city_id);
 
-select * from employee;
-select * from candidates;
+ALTER TABLE department
+MODIFY city_id NOT NULL;
+

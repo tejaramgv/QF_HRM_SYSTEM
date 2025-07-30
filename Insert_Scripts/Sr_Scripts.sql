@@ -2,11 +2,15 @@ BEGIN
   source_requirement.ADD_CANDIDATE(
     p_first_name => 'Sridhar',
     p_last_name => 'Reddy',
-    p_email => 'Tej@gmail.com',
-    p_phone => 7702425609,
+    p_email => 'Tejeshreddy@gmail.com',
+    p_phone => 7702425611,
     p_dob => TO_DATE('2004-06-13', 'YYYY-MM-DD'),
     p_id_proof_type => 'Passport',
+<<<<<<< HEAD
     p_id_proof_num => 'A1234567',
+=======
+    p_id_proof_num => 'Z1234551',
+>>>>>>> 4d5edf66f19bf588fc053d7a0d1b2174c6cc260b
     p_highest_degree => 'B.Tech',
     p_university => 'JNTU',
     p_cgpa => 8.9,
@@ -17,7 +21,11 @@ BEGIN
     p_expected_salary => 600000,
     p_years_of_experience => 2,
     p_skills => 'Python, SQL',
+<<<<<<< HEAD
     p_gender => 'F',
+=======
+    p_gender => 'M',
+>>>>>>> 4d5edf66f19bf588fc053d7a0d1b2174c6cc260b
     p_role => 'Backend Developer'
   );
 END;
@@ -26,13 +34,13 @@ select * from candidates;
 set serveroutput on;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
-        p_candidate_id =>55,
-        p_interview_status=>'Selected',
-        p_first_name=>'Teja',
-        p_last_name=>'ram'
+        p_candidate_id =>1,
+        p_dob=>to_date('01-01-2006','dd-mm-yyyy')
     );
 END;
 /
+set serveroutput on;
+select * from candidates;
 BEGIN
   source_requirement.ADD_CANDIDATE(
     p_first_name => 'lahari',
@@ -61,14 +69,14 @@ END;
 SET SERVEROUTPUT ON;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
-        p_candidate_id => 94,
-        p_id_proof_type => 'Aadhar',
-        p_id_proof_num => 501370089805
+        p_candidate_id => 108,
+        p_gender=>'f'
 
         
     );
 END;
 /
+select * from candidates;
 
 
 EXEC source_requirement.list_candidates;
@@ -85,6 +93,10 @@ EXEC source_requirement.get_candidate_details(p_section=>'personal');
 
 
 EXEC promote_candidate_to_employee(108,4,700000);
+
+EXEC pkg_emp_ops.add_department(p_department_name=>'pRocurement',p_city_id=>22);
+
+EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1037);
 
 
 select * from candidates;
