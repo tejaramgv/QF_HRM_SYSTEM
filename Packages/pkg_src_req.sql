@@ -74,7 +74,7 @@ PROCEDURE get_candidate_details (
     p_email        IN candidates.email%TYPE DEFAULT NULL,
     p_phone        IN candidates.phone%TYPE DEFAULT NULL,
     p_id_proof_num IN candidates.id_proof_num%TYPE DEFAULT NULL,    
-    p_section      IN VARCHAR2 DEFAULT NULL
+    p_detail_type      IN VARCHAR2 DEFAULT NULL
 );
 
 PROCEDURE promote_candidate_to_employee (
@@ -134,10 +134,10 @@ EXCEPTION
                 v_err_col VARCHAR2(100);
             BEGIN
                 v_err_col := REGEXP_SUBSTR(SQLERRM, '"[^"]+"\."[^"]+"\."([^"]+)"', 1, 1, NULL, 1);
-                DBMS_OUTPUT.PUT_LINE('❌ Error: The value you entered for "' || INITCAP(v_err_col) || '" is too long. Please enter a shorter value.');
+                DBMS_OUTPUT.PUT_LINE('Error: The value you entered for "' || INITCAP(v_err_col) || '" is too long. Please enter a shorter value.');
             END;
         ELSE
-            DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
+            DBMS_OUTPUT.PUT_LINE('Unexpected error: ' || SQLERRM);
         END IF;
 END add_candidate;
 
@@ -204,11 +204,11 @@ BEGIN
                                 WHEN p_interview_status = 'Rejected' THEN NVL(p_rejection_reason, rejection_reason)
                                 ELSE rejection_reason 
                               END,
-        status              = CASE 
-                                WHEN p_interview_status = 'Rejected' THEN 'Inactive'
-                                WHEN p_interview_status = 'Selected' THEN 'Active'
-                                ELSE status 
-                              END,
+        status = CASE 
+            WHEN p_interview_status IS NOT NULL AND LOWER(p_interview_status) IN ('selected', 'rejected') THEN 'Inactive'
+            WHEN p_interview_status IS NOT NULL AND LOWER(p_interview_status) = 'in progress' THEN 'Active'
+            ELSE status
+        END,
         gender              = NVL(initcap(p_gender), gender),
         role                = NVL(p_role, role)
     WHERE candidate_id = p_candidate_id;
@@ -370,10 +370,10 @@ IS
     v_count NUMBER := 0;
 
     line_separator CONSTANT VARCHAR2(2000) :=
-'+--------------+--------------+-------------+--------------------------+------------+------------+--------------------+--------------------------+--------------------+--------------------+--------+----------------+----------------+--------------------------+----------------+------------------+--------------------------+--------------------------+----------------------------+----------------+------------------------';
+'+--------------+--------------+-------------+--------------------------+------------+------------+--------------------+--------------------------+--------------------+----------------------+--------+----------------+----------------+--------------------------+----------------+------------------+--------------------------+--------------------------+----------------------------+----------------+------------------------';
 
     header CONSTANT VARCHAR2(2000) :=
-'| Candidate ID | First Name   | Last Name   | Email                    | Phone      | DOB        | ID Proof Type      | ID Proof Number          | Highest Degree     | University         | CGPA   | City           | Country        | Last Employer            | Last Salary    | Expected Salary  | Years of Experience      | Skills                   | Interview Status           | Status         | role                   |';
+'| Candidate ID | First Name   | Last Name   | Email                    | Phone      | DOB        | ID Proof Type      | ID Proof Number          | Highest Degree     | University           | CGPA   | City           | Country        | Last Employer            | Last Salary    | Expected Salary  | Years of Experience      | Skills                   | Interview Status           | Status         | role                   |';
 
 BEGIN
     OPEN c_cand;
@@ -401,17 +401,17 @@ BEGIN
             RPAD(NVL(r.id_proof_num, 'N/A'), 24) || ' | ' ||
             RPAD(r.highest_degree, 19) || ' | ' ||
             RPAD(r.university, 19) || ' | ' ||
-            LPAD(TO_CHAR(r.cgpa, '0.0'), 5) || ' | ' ||
-            RPAD(NVL(r.city, 'N/A'), 13) || ' | ' ||
-            RPAD(NVL(r.country, 'N/A'), 14) || ' | ' ||
-            RPAD(NVL(r.last_employer, 'N/A'), 24) || ' | ' ||
+            LPAD(TO_CHAR(r.cgpa, '0.0'), 5) || '  | ' ||
+            RPAD(NVL(r.city, 'N/A'), 13) || '  | ' ||
+            RPAD(NVL(r.country, 'N/A'), 14) || '  | ' ||
+            RPAD(NVL(r.last_employer, 'N/A'), 24) || '| ' ||
             LPAD(NVL(TO_CHAR(r.last_salary), 'N/A'), 14) || ' | ' ||
             LPAD(NVL(TO_CHAR(r.expected_salary), 'N/A'), 16) || ' | ' ||
             LPAD(NVL(TO_CHAR(r.years_of_experience), '0'), 24) || ' | ' ||
             RPAD(SUBSTR(r.skills, 1, 26), 24) || ' | ' ||
             RPAD(NVL(r.interview_status, 'N/A'), 27) || ' | ' ||
-            RPAD(NVL(r.status, 'N/A'), 13) || ' |'||
-            RPAD(NVL(r.role, 'N/A'), 24) || ' |'
+            RPAD(NVL(r.status, 'N/A'), 13) || '|'||
+            RPAD(NVL(r.role, 'N/A'), 24) || ' | '
 
         );
     END LOOP;
@@ -429,31 +429,156 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('Error occurred while listing candidates: ' || SQLERRM);
 END;
 
+--PROCEDURE get_candidate_details (
+--    p_candidate_id IN candidates.candidate_id%TYPE DEFAULT NULL,
+--    p_email        IN candidates.email%TYPE DEFAULT NULL,
+--    p_phone        IN candidates.phone%TYPE DEFAULT NULL,
+--    p_id_proof_num IN candidates.id_proof_num%TYPE DEFAULT NULL,
+--    p_section      IN VARCHAR2 DEFAULT NULL
+--)
+--IS
+--    r_cand candidates%ROWTYPE;
+--    e_invalid_section EXCEPTION;
+--
+--BEGIN
+--    -- Step 1: Fetch candidate based on any identifier
+--    SELECT *
+--INTO r_cand
+--FROM candidates
+--WHERE
+--    (p_candidate_id IS NULL OR candidate_id = p_candidate_id) AND
+--    (p_email IS NULL OR LOWER(email) = LOWER(p_email)) AND
+--    (p_phone IS NULL OR phone = p_phone) AND
+--    (p_id_proof_num IS NULL OR id_proof_num = p_id_proof_num);
+--
+--
+--    -- Step 2: Display details based on section
+--    IF p_section IS NULL THEN
+--        DBMS_OUTPUT.PUT_LINE('======================= CANDIDATE FULL DETAILS =======================');
+--        
+--        -- PERSONAL
+--        DBMS_OUTPUT.PUT_LINE('PERSONAL INFORMATION');
+--        DBMS_OUTPUT.PUT_LINE('Name            : ' || r_cand.first_name || ' ' || r_cand.last_name);
+--        DBMS_OUTPUT.PUT_LINE('DOB             : ' || TO_CHAR(r_cand.dob, 'YYYY-MM-DD'));
+--        DBMS_OUTPUT.PUT_LINE('Gender          : ' || NVL(r_cand.gender, 'N/A'));
+--        DBMS_OUTPUT.PUT_LINE('Email           : ' || r_cand.email);
+--        DBMS_OUTPUT.PUT_LINE('Phone           : ' || r_cand.phone);
+--        DBMS_OUTPUT.PUT_LINE('Location        : ' || NVL(r_cand.city, 'N/A') || ', ' || NVL(r_cand.country, 'N/A'));
+--        DBMS_OUTPUT.PUT_LINE('ID Proof        : ' || r_cand.id_proof_type || ' - ' || r_cand.id_proof_num);
+--        
+--        -- ACADEMIC
+--        DBMS_OUTPUT.PUT_LINE(CHR(10) || 'ACADEMIC INFORMATION');
+--        DBMS_OUTPUT.PUT_LINE('Highest Degree  : ' || r_cand.highest_degree);
+--        DBMS_OUTPUT.PUT_LINE('University      : ' || r_cand.university);
+--        DBMS_OUTPUT.PUT_LINE('CGPA            : ' || r_cand.cgpa);
+--
+--        -- PROFESSIONAL
+--        DBMS_OUTPUT.PUT_LINE(CHR(10) || 'PROFESSIONAL INFORMATION');
+--        DBMS_OUTPUT.PUT_LINE('Last Employer   : ' || NVL(r_cand.last_employer, 'N/A'));
+--        DBMS_OUTPUT.PUT_LINE('Last Salary     : ' || NVL(TO_CHAR(r_cand.last_salary), 'N/A'));
+--        DBMS_OUTPUT.PUT_LINE('Expected Salary : ' || NVL(TO_CHAR(r_cand.expected_salary), 'N/A'));
+--        DBMS_OUTPUT.PUT_LINE('Experience (yrs): ' || r_cand.years_of_experience);
+--        DBMS_OUTPUT.PUT_LINE('Skill Set       : ' || r_cand.skills);
+--        DBMS_OUTPUT.PUT_LINE('Interview Status: ' || r_cand.interview_status);
+--        DBMS_OUTPUT.PUT_LINE('Status          : ' || r_cand.status);
+--        DBMS_OUTPUT.PUT_LINE('======================================================================');
+--
+--    ELSE
+--        CASE UPPER(TRIM(p_section))
+--            WHEN 'PERSONAL' THEN
+--                DBMS_OUTPUT.PUT_LINE('PERSONAL INFORMATION');
+--                DBMS_OUTPUT.PUT_LINE('Name            : ' || r_cand.first_name || ' ' || r_cand.last_name);
+--                DBMS_OUTPUT.PUT_LINE('DOB             : ' || TO_CHAR(r_cand.dob, 'YYYY-MM-DD'));
+--                DBMS_OUTPUT.PUT_LINE('Gender          : ' || NVL(r_cand.gender, 'N/A'));
+--                DBMS_OUTPUT.PUT_LINE('Email           : ' || r_cand.email);
+--                DBMS_OUTPUT.PUT_LINE('Phone           : ' || r_cand.phone);
+--                DBMS_OUTPUT.PUT_LINE('Location        : ' || NVL(r_cand.city, 'N/A') || ', ' || NVL(r_cand.country, 'N/A'));
+--                DBMS_OUTPUT.PUT_LINE('ID Proof        : ' || r_cand.id_proof_type || ' - ' || r_cand.id_proof_num);
+--
+--            WHEN 'ACADEMIC' THEN
+--                DBMS_OUTPUT.PUT_LINE(' ACADEMIC INFORMATION');
+--                DBMS_OUTPUT.PUT_LINE('Highest Degree  : ' || r_cand.highest_degree);
+--                DBMS_OUTPUT.PUT_LINE('University      : ' || r_cand.university);
+--                DBMS_OUTPUT.PUT_LINE('CGPA            : ' || r_cand.cgpa);
+--
+--            WHEN 'PROFESSIONAL' THEN
+--                DBMS_OUTPUT.PUT_LINE('PROFESSIONAL INFORMATION');
+--                DBMS_OUTPUT.PUT_LINE('Last Employer   : ' || NVL(r_cand.last_employer, 'N/A'));
+--                DBMS_OUTPUT.PUT_LINE('Last Salary     : ' || NVL(TO_CHAR(r_cand.last_salary), 'N/A'));
+--                DBMS_OUTPUT.PUT_LINE('Expected Salary : ' || NVL(TO_CHAR(r_cand.expected_salary), 'N/A'));
+--                DBMS_OUTPUT.PUT_LINE('Experience (yrs): ' || r_cand.years_of_experience);
+--                DBMS_OUTPUT.PUT_LINE('Skill Set       : ' || r_cand.skills);
+--                DBMS_OUTPUT.PUT_LINE('Interview Status: ' || r_cand.interview_status);
+--                DBMS_OUTPUT.PUT_LINE('Status          : ' || r_cand.status);
+--
+--            ELSE
+--                RAISE e_invalid_section;
+--        END CASE;
+--    END IF;
+--
+--EXCEPTION
+--    WHEN NO_DATA_FOUND THEN
+--        DBMS_OUTPUT.PUT_LINE('No candidate found matching the given ID/email/phone/proof number.');
+--
+--    WHEN e_invalid_section THEN
+--        DBMS_OUTPUT.PUT_LINE('Invalid section "' || p_section || '". Use PERSONAL, ACADEMIC, or PROFESSIONAL.');
+--
+--    WHEN OTHERS THEN
+--        DBMS_OUTPUT.PUT_LINE('Unexpected error: ' || SQLERRM);
+--END;
+
 PROCEDURE get_candidate_details (
     p_candidate_id IN candidates.candidate_id%TYPE DEFAULT NULL,
     p_email        IN candidates.email%TYPE DEFAULT NULL,
     p_phone        IN candidates.phone%TYPE DEFAULT NULL,
     p_id_proof_num IN candidates.id_proof_num%TYPE DEFAULT NULL,
-    p_section      IN VARCHAR2 DEFAULT NULL
+   p_detail_type     IN VARCHAR2 DEFAULT NULL
 )
 IS
     r_cand candidates%ROWTYPE;
     e_invalid_section EXCEPTION;
+    valid_section BOOLEAN := TRUE;
 
 BEGIN
-    -- Step 1: Fetch candidate based on any identifier
-    SELECT *
-INTO r_cand
-FROM candidates
-WHERE
-    (p_candidate_id IS NULL OR candidate_id = p_candidate_id) AND
-    (p_email IS NULL OR LOWER(email) = LOWER(p_email)) AND
-    (p_phone IS NULL OR phone = p_phone) AND
-    (p_id_proof_num IS NULL OR id_proof_num = p_id_proof_num);
+    ------------------------------------------------------------------
+    -- Step 1: Validate Section First
+    ------------------------------------------------------------------
+    IF p_detail_type IS NOT NULL THEN
+        CASE UPPER(TRIM(p_detail_type))
+            WHEN 'PERSONAL' THEN NULL;
+            WHEN 'ACADEMIC' THEN NULL;
+            WHEN 'PROFESSIONAL' THEN NULL;
+            ELSE
+                valid_section := FALSE;
+                RAISE e_invalid_section;
+        END CASE;
+    END IF;
 
+    ------------------------------------------------------------------
+    -- Step 2: Fetch candidate based on any identifier
+    ------------------------------------------------------------------
+    BEGIN
+        SELECT *
+        INTO r_cand
+        FROM candidates
+        WHERE
+            (p_candidate_id IS NULL OR candidate_id = p_candidate_id) AND
+            (p_email IS NULL OR LOWER(email) = LOWER(p_email)) AND
+            (p_phone IS NULL OR phone = p_phone) AND
+            (p_id_proof_num IS NULL OR id_proof_num = p_id_proof_num);
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            IF NOT valid_section THEN
+                DBMS_OUTPUT.PUT_LINE('Invalid section "' || p_detail_type || '". Use PERSONAL, ACADEMIC, or PROFESSIONAL.');
+            END IF;
+            DBMS_OUTPUT.PUT_LINE('No candidate found for the given details. Please check candidate ID, email, phone, or ID proof number.');
+            RETURN;
+    END;
 
-    -- Step 2: Display details based on section
-    IF p_section IS NULL THEN
+    ------------------------------------------------------------------
+    -- Step 3: Display Details
+    ------------------------------------------------------------------
+    IF p_detail_type IS NULL THEN
         DBMS_OUTPUT.PUT_LINE('======================= CANDIDATE FULL DETAILS =======================');
         
         -- PERSONAL
@@ -484,7 +609,7 @@ WHERE
         DBMS_OUTPUT.PUT_LINE('======================================================================');
 
     ELSE
-        CASE UPPER(TRIM(p_section))
+        CASE UPPER(TRIM(p_detail_type))
             WHEN 'PERSONAL' THEN
                 DBMS_OUTPUT.PUT_LINE('PERSONAL INFORMATION');
                 DBMS_OUTPUT.PUT_LINE('Name            : ' || r_cand.first_name || ' ' || r_cand.last_name);
@@ -496,7 +621,7 @@ WHERE
                 DBMS_OUTPUT.PUT_LINE('ID Proof        : ' || r_cand.id_proof_type || ' - ' || r_cand.id_proof_num);
 
             WHEN 'ACADEMIC' THEN
-                DBMS_OUTPUT.PUT_LINE(' ACADEMIC INFORMATION');
+                DBMS_OUTPUT.PUT_LINE('ACADEMIC INFORMATION');
                 DBMS_OUTPUT.PUT_LINE('Highest Degree  : ' || r_cand.highest_degree);
                 DBMS_OUTPUT.PUT_LINE('University      : ' || r_cand.university);
                 DBMS_OUTPUT.PUT_LINE('CGPA            : ' || r_cand.cgpa);
@@ -510,18 +635,12 @@ WHERE
                 DBMS_OUTPUT.PUT_LINE('Skill Set       : ' || r_cand.skills);
                 DBMS_OUTPUT.PUT_LINE('Interview Status: ' || r_cand.interview_status);
                 DBMS_OUTPUT.PUT_LINE('Status          : ' || r_cand.status);
-
-            ELSE
-                RAISE e_invalid_section;
         END CASE;
     END IF;
 
 EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('No candidate found matching the given ID/email/phone/proof number.');
-
     WHEN e_invalid_section THEN
-        DBMS_OUTPUT.PUT_LINE('Invalid section "' || p_section || '". Use PERSONAL, ACADEMIC, or PROFESSIONAL.');
+        DBMS_OUTPUT.PUT_LINE('Invalid section "' || p_detail_type || '". Use PERSONAL, ACADEMIC, or PROFESSIONAL.');
 
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Unexpected error: ' || SQLERRM);
@@ -657,7 +776,83 @@ FOR EACH ROW
 DECLARE
     lv2_type VARCHAR2(20);
     ln_age NUMBER;
+    lv_error_msgs VARCHAR2(100);
+    l_count NUMBER;
+
 BEGIN
+    -------------------------------------------------------------------
+    -- Mandatory Fields Validation: Collect all missing ones
+    -------------------------------------------------------------------
+  IF INSERTING THEN
+    lv_error_msgs := '';
+
+    IF :NEW.first_name IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'First name is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.last_name IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'Last name is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.email IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'Email address is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.phone IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'Phone number is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.dob IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'Date of birth is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.gender IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'Gender is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.id_proof_type IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'ID proof type is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.id_proof_num IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'ID proof number is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.city IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'City is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.country IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'Country is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.highest_degree IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'Highest degree is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.university IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'University name is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.cgpa IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'CGPA is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.skills IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'Skills field is missing.' || CHR(10);
+    END IF;
+
+    IF :NEW.role IS NULL THEN 
+        lv_error_msgs := lv_error_msgs || 'Role is missing.' || CHR(10);
+    END IF;
+
+    -- Raise error if anything missing
+    IF lv_error_msgs IS NOT NULL THEN
+        RAISE_APPLICATION_ERROR(-20100,
+            'Please correct the following issues before submitting:' || CHR(10) || lv_error_msgs);
+    END IF;
+END IF;
+
     -------------------------------------------------------------------
     -- First Name
     -------------------------------------------------------------------
@@ -687,7 +882,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20005, 'Email is required.');
     ELSIF :NEW.email IS NOT NULL THEN
         IF NOT REGEXP_LIKE(:NEW.email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') THEN
-            RAISE_APPLICATION_ERROR(-20006, 'Invalid email format.');
+            RAISE_APPLICATION_ERROR(-20006, 'Please enter a valid email address like user@example.com.');
         END IF;
     END IF;
 
@@ -712,6 +907,16 @@ BEGIN
         IF ln_age < 18 OR ln_age > 65 THEN
             RAISE_APPLICATION_ERROR(-20010, 'Age must be between 18 and 65.');
         END IF;
+        IF :NEW.years_of_experience IS NOT NULL THEN
+            IF :NEW.years_of_experience < 0 THEN
+                RAISE_APPLICATION_ERROR(-20006, 'Experience cannot be negative.');
+            ELSIF :NEW.years_of_experience > (ln_age - 18) THEN
+                RAISE_APPLICATION_ERROR(-20007, 'Experience is too high for your age. Please verify.');
+            ELSIF ln_age = 18 AND :NEW.years_of_experience != 0 THEN
+                RAISE_APPLICATION_ERROR(-20008, 'If your age is 18, your experience must be 0.');
+            END IF;
+        END IF;
+
     END IF;
 
     -------------------------------------------------------------------
@@ -721,7 +926,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20011, 'Gender is required.');
     ELSIF :NEW.gender IS NOT NULL THEN
         IF UPPER(:NEW.gender) NOT IN ('M', 'F') THEN
-            RAISE_APPLICATION_ERROR(-20012, 'Gender must be M or F.');
+            RAISE_APPLICATION_ERROR(-20012, 'Gender must be either M or F.');
         END IF;
     END IF;
 
@@ -745,17 +950,17 @@ BEGIN
     IF INSERTING AND :NEW.id_proof_num IS NULL THEN
         RAISE_APPLICATION_ERROR(-20015, 'ID proof number is required.');
     ELSIF :NEW.id_proof_num IS NOT NULL THEN
-        IF lv2_type = 'AADHAR' THEN
-            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[0-9]{12}$') THEN
-                RAISE_APPLICATION_ERROR(-20016, 'Invalid Aadhar number. Must be 12 digits.');
+       IF lv2_type = 'AADHAR' THEN
+            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[2-9][0-9]{11}$') THEN
+                RAISE_APPLICATION_ERROR(-20016, 'Invalid Aadhar number. It must be 12 digits and start with a digit from 2 to 9.');
             END IF;
         ELSIF lv2_type = 'PASSPORT' THEN
             IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Z][0-9]{7}$') THEN
                 RAISE_APPLICATION_ERROR(-20017, 'Invalid Passport number. Format: A1234567.');
             END IF;
-      ELSIF lv2_type = 'DL' THEN
+        ELSIF lv2_type = 'DL' THEN
             IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Z0-9]{13,15}$') THEN
-                RAISE_APPLICATION_ERROR(-20004, 'Invalid DL number. Must be alphanumeric (13-15 characters).');
+                RAISE_APPLICATION_ERROR(-20018, 'Invalid DL number. Must be alphanumeric (13-15 characters).');
             END IF;
 
         END IF;
@@ -768,7 +973,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20019, 'City is required.');
     ELSIF :NEW.city IS NOT NULL THEN
         IF NOT REGEXP_LIKE(:NEW.city, '^[A-Za-z ]+$') THEN
-            RAISE_APPLICATION_ERROR(-20020, 'City must contain only alphabetic characters.');
+            RAISE_APPLICATION_ERROR(-20020, 'City name must contain only spaces and alphabetic characters.');
         END IF;
     END IF;
 
@@ -779,7 +984,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20021, 'Country is required.');
     ELSIF :NEW.country IS NOT NULL THEN
         IF NOT REGEXP_LIKE(:NEW.country, '^[A-Za-z ]+$') THEN
-            RAISE_APPLICATION_ERROR(-20022, 'Country must contain only alphabetic characters.');
+            RAISE_APPLICATION_ERROR(-20022, 'Country name must contain only spaces and alphabetic characters.');
         END IF;
     END IF;
 
@@ -829,11 +1034,101 @@ BEGIN
     
     IF :NEW.last_salary IS NOT NULL AND :NEW.expected_salary IS NOT NULL THEN
         IF :NEW.expected_salary < :NEW.last_salary THEN
-            RAISE_APPLICATION_ERROR(-20007, 'Expected salary must be greater than or equal to last salary.');
+            RAISE_APPLICATION_ERROR(-20031, 'Expected salary must be greater than or equal to last salary.');
         END IF;
     END IF;
+    
+    IF :new.status IS NOT NULL THEN
+        IF LOWER(:new.status) NOT IN ('active', 'inactive') THEN
+            RAISE_APPLICATION_ERROR(-20032,'Status must be either "active" or "inactive". ');
+        END IF;
+    END IF;
+
+    -- Validate 'interview_status' if provided
+    IF :new.interview_status IS NOT NULL THEN
+        IF LOWER(:new.interview_status) NOT IN ('selected', 'rejected', 'in progress') THEN
+           RAISE_APPLICATION_ERROR(-20033, 'Interview status must be "selected", "rejected", or "in progress".') ;
+        END IF;
+
+        -- If interview_status is rejected, rejection_reason must be given
+        IF LOWER(:new.interview_status) = 'rejected' AND (:new.rejection_reason IS NULL OR TRIM(:new.rejection_reason) = '') THEN
+           RAISE_APPLICATION_ERROR(-20034,'Rejection reason is required when interview status is "rejected". ');
+        END IF;
+    END IF;
+
 
 END;
 
 /
-select * from employee;
+
+CREATE OR REPLACE TRIGGER trg_check_candidate_duplicates
+FOR INSERT OR UPDATE ON candidates
+COMPOUND TRIGGER
+
+    TYPE candidate_rec IS RECORD (
+        email          candidates.email%TYPE,
+        phone          candidates.phone%TYPE,
+        id_proof_num   candidates.id_proof_num%TYPE,
+        candidate_id   candidates.candidate_id%TYPE
+    );
+
+    TYPE candidate_tab IS TABLE OF candidate_rec INDEX BY PLS_INTEGER;
+
+    v_new_candidates candidate_tab;
+    ln_idx PLS_INTEGER := 0;
+
+AFTER EACH ROW IS
+BEGIN
+    ln_idx := ln_idx + 1;
+    v_new_candidates(ln_idx).email := LOWER(:NEW.email);
+    v_new_candidates(ln_idx).phone := :NEW.phone;
+    v_new_candidates(ln_idx).id_proof_num := :NEW.id_proof_num;
+    v_new_candidates(ln_idx).candidate_id := :NEW.candidate_id;
+END AFTER EACH ROW;
+
+AFTER STATEMENT IS
+    ln_count NUMBER;
+BEGIN
+    FOR i IN 1 .. v_new_candidates.COUNT LOOP
+        -- Check for duplicate email
+        IF v_new_candidates(i).email IS NOT NULL THEN
+            SELECT COUNT(*) INTO ln_count
+            FROM candidates
+            WHERE LOWER(email) = v_new_candidates(i).email
+              AND (candidate_id != v_new_candidates(i).candidate_id OR v_new_candidates(i).candidate_id IS NULL);
+
+            IF ln_count > 0 THEN
+                RAISE_APPLICATION_ERROR(-20040, 'The email address "' || v_new_candidates(i).email || '" is already registered. Please use a different email.');
+            END IF;
+        END IF;
+
+        -- Check for duplicate phone
+        IF v_new_candidates(i).phone IS NOT NULL THEN
+            SELECT COUNT(*) INTO ln_count
+            FROM candidates
+            WHERE phone = v_new_candidates(i).phone
+              AND (candidate_id != v_new_candidates(i).candidate_id OR v_new_candidates(i).candidate_id IS NULL);
+
+            IF ln_count > 0 THEN
+                RAISE_APPLICATION_ERROR(-20041, 'The phone number "' || v_new_candidates(i).phone || '" is already registered. Please use a different phone number.');
+            END IF;
+        END IF;
+
+        -- Check for duplicate ID proof
+        IF v_new_candidates(i).id_proof_num IS NOT NULL THEN
+            SELECT COUNT(*) INTO ln_count
+            FROM candidates
+            WHERE id_proof_num = v_new_candidates(i).id_proof_num
+              AND (candidate_id != v_new_candidates(i).candidate_id OR v_new_candidates(i).candidate_id IS NULL);
+
+            IF ln_count > 0 THEN
+                RAISE_APPLICATION_ERROR(-20042, 'The ID proof number "' || v_new_candidates(i).id_proof_num || '" is already registered. Please use a different ID proof.');
+            END IF;
+        END IF;
+    END LOOP;
+END AFTER STATEMENT;
+
+END trg_check_candidate_duplicates;
+/
+
+select * from candidates;
