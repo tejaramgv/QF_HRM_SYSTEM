@@ -80,7 +80,8 @@ PROCEDURE get_candidate_details (
 PROCEDURE promote_candidate_to_employee (
     p_candidate_id   IN NUMBER,
     p_department_id  IN NUMBER,
-    p_salary         IN NUMBER DEFAULT NULL
+    p_salary         IN NUMBER DEFAULT NULL,
+    p_role           IN VARCHAR2 DEFAULT NULL
 );
 END source_requirement;
 /
@@ -531,27 +532,29 @@ END;
 PROCEDURE promote_candidate_to_employee (
     p_candidate_id   IN NUMBER,
     p_department_id  IN NUMBER,
-    p_salary         IN NUMBER DEFAULT NULL
+    p_salary         IN NUMBER DEFAULT NULL,
+    p_role           IN VARCHAR2 DEFAULT NULL
+
 ) IS
-    v_first_name   candidates.first_name%TYPE;
-    v_last_name    candidates.last_name%TYPE;
+    
     v_skill        candidates.skills%TYPE;
     v_exp          candidates.years_of_experience%TYPE;
     v_salary       NUMBER;
     v_band_id      baseline_salary.band_id%TYPE;
     v_new_emp_id   employee.employee_id%TYPE;
-    v_gender       candidates.gender%TYPE;
     v_role         candidates.role%TYPE;
     v_manager_id   employee.employee_id%TYPE;
     v_band_found   BOOLEAN := FALSE;
     v_status       candidates.interview_status%TYPE;
 BEGIN
     -- Step 1: Fetch candidate details
-    SELECT first_name, last_name, skills, years_of_experience,
-           COALESCE(p_salary, expected_salary), gender, role, interview_status
-    INTO v_first_name, v_last_name, v_skill, v_exp, v_salary, v_gender, v_role, v_status
+    SELECT skills, years_of_experience,
+           COALESCE(p_salary, expected_salary), role, interview_status
+    INTO  v_skill, v_exp, v_salary,  v_role, v_status
     FROM candidates
     WHERE candidate_id = p_candidate_id;
+    
+    v_role:=NVL(p_role,v_role);
 
     -- Step 1b: Validate interview status
     IF v_status != 'Selected' THEN
@@ -616,13 +619,13 @@ BEGIN
 
     -- Step 5: Insert new employee record
     INSERT INTO employee (
-        employee_id, candidate_id, first_name, last_name,
+        employee_id, candidate_id, 
         salary, department_id, date_of_joining, band_id,
-        manager_id, employee_status, leaves_balance, gender, role
+        manager_id, employee_status, leaves_balance, role
     ) VALUES (
-        v_new_emp_id, p_candidate_id, v_first_name, v_last_name,
+        v_new_emp_id, p_candidate_id,
         v_salary, p_department_id, SYSDATE, v_band_id,
-        v_manager_id, 'Active', 24, v_gender, v_role
+        v_manager_id, 'Active', (12 - EXTRACT(MONTH FROM sysdate) + 1) * 2,  v_role
     );
 
     -- Output success message
@@ -638,7 +641,7 @@ EXCEPTION
     WHEN NO_DATA_FOUND THEN
         RAISE_APPLICATION_ERROR(-20001, 'Candidate not found. Please check the Candidate ID.');
     WHEN DUP_VAL_ON_INDEX THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Duplicate employee ID encountered. Please verify the employee sequence.');
+        RAISE_APPLICATION_ERROR(-20003, 'Candidate already promoted to employee.');
     WHEN OTHERS THEN
         RAISE_APPLICATION_ERROR(-20099, 'Unexpected error occurred: ' || SQLERRM);
 END;

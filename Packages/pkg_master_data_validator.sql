@@ -142,3 +142,24 @@ EXCEPTION
 END;
 /
 
+
+CREATE OR REPLACE TRIGGER trg_check_role_emp
+BEFORE INSERT OR UPDATE ON employee
+FOR EACH ROW
+DECLARE
+    v_job_title master_data.masterdata_value%TYPE;
+BEGIN
+    -- Look up the exact job title from master_data (case-insensitive match)
+    SELECT masterdata_value
+    INTO v_job_title
+    FROM master_data
+    WHERE masterdata_type = 'JOB_TITLE'
+      AND UPPER(masterdata_value) = UPPER(:NEW.role);
+    -- Standardize inserted value
+    :NEW.role := v_job_title;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20014, 'Invalid role. '||v_job_title||' does not exist in master_data.');
+END;
+/
