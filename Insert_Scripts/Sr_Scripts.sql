@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 BEGIN
   source_requirement.ADD_CANDIDATE(
     p_first_name => 'Lahari',
@@ -22,7 +23,11 @@ BEGIN
   );
 END;
 /
+=======
+
+>>>>>>> 634ce51f6a45e7194b3360d1bf742de0c90a88a3
 select * from candidates;
+select * from employee;
 set serveroutput on;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
@@ -63,8 +68,8 @@ END;
 SET SERVEROUTPUT ON;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
-        p_candidate_id => 108,
-        p_gender=>'f'
+        p_candidate_id => 59,
+        p_interview_status=>'Selected'
 
         
     );
@@ -87,10 +92,12 @@ EXEC source_requirement.get_candidate_details(p_candidate_id=>1,p_detail_type=>'
 --valid masg,parameter valid
 --check section first then do candiadteid
 
-EXEC promote_candidate_to_employee(108,4,700000);
+EXEC source_requirement.promote_candidate_to_employee(59,4,700000);
 
+set serveroutput on;
 EXEC pkg_emp_ops.add_department(p_department_name=>'pRocurement',p_city_id=>22);
 
+<<<<<<< HEAD
 EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1077);
 
 
@@ -321,10 +328,26 @@ SELECT *
 FROM candidates
 WHERE LOWER(interview_status) = 'rejected'
   AND (rejection_reason IS NULL OR TRIM(rejection_reason) = '');
+=======
+EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1035);
+set serveroutput on;
+-- All employees
+EXEC pkg_emp_ops.list_employees(p_country_id=>100);
+>>>>>>> 634ce51f6a45e7194b3360d1bf742de0c90a88a3
 
+--get emp details
+EXEC pkg_emp_ops.get_employee_details(10009); 
 
+EXEC pkg_emp_ops.update_employee(p_employee_id=>1037,p_department_id => 1,p_role=>'hr Executive');
+
+set serveroutput on;
+
+select * from master_data;
 select * from candidates;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 634ce51f6a45e7194b3360d1bf742de0c90a88a3
 select * from employee;
 
 --DELETE FROM Employee WHERE candidate_id=1;
