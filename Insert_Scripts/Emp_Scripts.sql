@@ -21,3 +21,7 @@ END;
 BEGIN
     mark_absentees;
 END;
+
+ALTER TABLE Employee DROP COLUMN First_Name;
+ALTER TABLE Employee DROP COLUMN Last_Name;
+ALTER TABLE Employee DROP COLUMN Gender;

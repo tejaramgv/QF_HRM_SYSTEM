@@ -110,19 +110,69 @@ PROCEDURE add_candidate (
 )
 AS
     ln_candidate_id NUMBER;
+    v_id_proof_type VARCHAR2(200);
+    v_formatted_skills VARCHAR2(1000);
+    v_item VARCHAR2(1000);
+
+
 BEGIN
     ln_candidate_id := seq_candidate_id.NEXTVAL;
+     IF UPPER(p_id_proof_type) = 'DL' THEN
+        v_id_proof_type := 'DL';
+    ELSE
+        v_id_proof_type := INITCAP(p_id_proof_type);
+    END IF;
+        v_formatted_skills := '';
+    IF p_skills IS NOT NULL THEN
 
+        FOR i IN 1 .. REGEXP_COUNT(p_skills, '[^,]+') LOOP
+            v_item := TRIM(REGEXP_SUBSTR(p_skills, '[^,]+', 1, i));
+    
+            -- Normalize and format known skills
+            IF LOWER(v_item) IN ('deveop', 'deveops', 'devops') THEN
+                v_item := 'DevOps';
+            ELSIF LOWER(v_item) = 'js' THEN
+                v_item := 'JavaScript';
+            ELSIF LOWER(v_item) = 'ml' THEN
+                v_item := 'ML';
+            ELSIF LOWER(v_item) = 'ai' THEN
+                v_item := 'AI';
+            ELSIF LOWER(v_item) = 'dbms' THEN
+                v_item := 'DBMS';
+            ELSIF LOWER(v_item) = 'c' THEN
+                v_item := 'C';
+            ELSIF LOWER(v_item) = 'sql' THEN
+                v_item := 'SQL';
+            ELSIF LOWER(v_item) = 'html' THEN
+                v_item := 'HTML';
+            ELSIF LOWER(v_item) = 'css' THEN
+                v_item := 'CSS';
+            ELSIF LOWER(v_item) = 'hr' THEN
+                v_item := 'HR';
+            ELSIF LOWER(v_item) IN ('pl/sql', 'plsql') THEN
+                v_item := 'PL/SQL';
+            ELSE
+                v_item := INITCAP(v_item);
+            END IF;
+    
+            -- Rebuild final skills string
+            IF i > 1 THEN
+                v_formatted_skills := v_formatted_skills || ' ,' || v_item;
+            ELSE
+                v_formatted_skills := v_item;
+            END IF;
+        END LOOP;
+    END IF;
     INSERT INTO candidates (
         candidate_id, first_name, last_name, email, phone, dob,
         id_proof_type, id_proof_num, highest_degree, university,
         cgpa, city, country, last_employer, last_salary,
         expected_salary, years_of_experience, skills, gender, role
     ) VALUES (
-        ln_candidate_id, p_first_name, p_last_name, p_email, p_phone, p_dob,
-        initcap(p_id_proof_type), p_id_proof_num, p_highest_degree, p_university,
-        p_cgpa, p_city, p_country, p_last_employer, p_last_salary,
-        p_expected_salary, p_years_of_experience, p_skills, initcap(p_gender), p_role
+        ln_candidate_id, INITCAP(p_first_name),INITCAP( p_last_name), LOWER(p_email), p_phone, p_dob,
+        v_id_proof_type,UPPER( p_id_proof_num),UPPER( p_highest_degree),UPPER( p_university),
+        p_cgpa, INITCAP(p_city), INITCAP(p_country), INITCAP(p_last_employer), p_last_salary,
+        p_expected_salary, p_years_of_experience,v_formatted_skills, initcap(p_gender), INITCAP(p_role)
     );
 
     DBMS_OUTPUT.PUT_LINE('Success: Candidate added with ID ' || ln_candidate_id);
@@ -132,13 +182,13 @@ EXCEPTION
         IF SQLCODE = -12899 THEN
             -- Extract column name from SQLERRM
             DECLARE
-                v_err_col VARCHAR2(100);
+                v_err_col VARCHAR2(1000);
             BEGIN
                 v_err_col := REGEXP_SUBSTR(SQLERRM, '"[^"]+"\."[^"]+"\."([^"]+)"', 1, 1, NULL, 1);
                 DBMS_OUTPUT.PUT_LINE('Error: The value you entered for "' || INITCAP(v_err_col) || '" is too long. Please enter a shorter value.');
             END;
         ELSE
-            DBMS_OUTPUT.PUT_LINE('Unexpected error: ' || SQLERRM);
+            DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
         END IF;
 END add_candidate;
 
@@ -173,36 +223,90 @@ IS
 
     change_summary VARCHAR2(4000) := '';
     ln_rows_updated NUMBER;
+    v_id_proof_type VARCHAR2(30);
+    v_formatted_skills VARCHAR2(1000);
+    v_item VARCHAR2(100);
+
 
     value_too_large EXCEPTION;
     PRAGMA EXCEPTION_INIT(value_too_large, -12899);
 BEGIN
     -- Fetch original row for comparison
     SELECT * INTO old_row FROM candidates WHERE candidate_id = p_candidate_id;
+      IF p_id_proof_type IS NOT NULL THEN
+        IF UPPER(p_id_proof_type) IN ('DL', 'PAN') THEN
+            v_id_proof_type := UPPER(p_id_proof_type);
+        ELSIF LOWER(p_id_proof_type) = 'aadhar' THEN
+            v_id_proof_type := 'Aadhar';
+        ELSE
+            v_id_proof_type := INITCAP(p_id_proof_type);
+        END IF;
+    END IF;
 
+    -- === Format skills ===
+    IF p_skills IS NOT NULL THEN
+        v_formatted_skills := '';
+        FOR i IN 1 .. REGEXP_COUNT(p_skills, '[^,]+') LOOP
+            v_item := TRIM(REGEXP_SUBSTR(p_skills, '[^,]+', 1, i));
+
+            IF LOWER(v_item) IN ('deveop', 'deveops', 'devops') THEN
+                v_item := 'DevOps';
+            ELSIF LOWER(v_item) = 'js' THEN
+                v_item := 'JavaScript';
+            ELSIF LOWER(v_item) = 'ml' THEN
+                v_item := 'ML';
+            ELSIF LOWER(v_item) = 'ai' THEN
+                v_item := 'AI';
+            ELSIF LOWER(v_item) = 'dbms' THEN
+                v_item := 'DBMS';
+            ELSIF LOWER(v_item) = 'c' THEN
+                v_item := 'C';
+            ELSIF LOWER(v_item) = 'sql' THEN
+                v_item := 'SQL';
+            ELSIF LOWER(v_item) = 'html' THEN
+                v_item := 'HTML';
+            ELSIF LOWER(v_item) = 'css' THEN
+                v_item := 'CSS';
+            ELSIF LOWER(v_item) = 'hr' THEN
+                v_item := 'HR';
+            ELSIF LOWER(v_item) IN ('pl/sql', 'plsql') THEN
+                v_item := 'PL/SQL';
+            ELSE
+                v_item := INITCAP(v_item);
+            END IF;
+
+            -- Append to skill list
+            IF i > 1 THEN
+                v_formatted_skills := v_formatted_skills || ' ,' || v_item;
+            ELSE
+                v_formatted_skills := v_item;
+            END IF;
+        END LOOP;
+    END IF;
     -- Perform update
+    
     UPDATE candidates
     SET
-        first_name          = NVL(p_first_name, first_name),
-        last_name           = NVL(p_last_name, last_name),
-        email               = NVL(p_email, email),
+        first_name          = NVL(INITCAP(p_first_name), first_name),
+        last_name           = NVL(INITCAP(p_last_name), last_name),
+        email               = NVL(LOWER(p_email), email),
         phone               = NVL(p_phone, phone),
         dob                 = NVL(p_dob, dob),
-        id_proof_type       = NVL(initcap(p_id_proof_type), id_proof_type),
-        id_proof_num        = NVL(p_id_proof_num, id_proof_num),
-        highest_degree      = NVL(p_highest_degree, highest_degree),
-        university          = NVL(p_university, university),
+        id_proof_type       = NVL(v_id_proof_type, id_proof_type),
+        id_proof_num        = NVL(UPPER(p_id_proof_num), id_proof_num),
+        highest_degree      = NVL(UPPER(p_highest_degree), highest_degree),
+        university          = NVL(UPPER(p_university), university),
         cgpa                = NVL(p_cgpa, cgpa),
-        city                = NVL(p_city, city),
-        country             = NVL(p_country, country),
-        last_employer       = NVL(p_last_employer, last_employer),
+        city                = NVL(INITCAP(p_city), city),
+        country             = NVL(INITCAP(p_country), country),
+        last_employer       = NVL(INITCAP(p_last_employer), last_employer),
         last_salary         = NVL(p_last_salary, last_salary),
         expected_salary     = NVL(p_expected_salary, expected_salary),
         years_of_experience = NVL(p_years_of_experience, years_of_experience),
-        skills              = NVL(p_skills, skills),
-        interview_status    = NVL(p_interview_status, interview_status),
+        skills              = NVL(v_formatted_skills, skills),
+        interview_status    = NVL(INITCAP(p_interview_status), interview_status),
         rejection_reason    = CASE 
-                                WHEN p_interview_status = 'Rejected' THEN NVL(p_rejection_reason, rejection_reason)
+                                WHEN LOWER(p_interview_status) = 'rejected' THEN NVL(INITCAP(p_rejection_reason), rejection_reason)
                                 ELSE rejection_reason 
                               END,
         status = CASE 
@@ -211,7 +315,7 @@ BEGIN
             ELSE status
         END,
         gender              = NVL(initcap(p_gender), gender),
-        role                = NVL(p_role, role)
+        role                = NVL(INITCAP(p_role), role)
     WHERE candidate_id = p_candidate_id;
 
     ln_rows_updated := SQL%ROWCOUNT;
@@ -331,8 +435,8 @@ BEGIN
     END IF;
 
     -- Delete
-    DELETE FROM candidates
-    WHERE candidate_id = p_candidate_id;
+--    DELETE FROM candidates
+--    WHERE candidate_id = p_candidate_id;
 
     DBMS_OUTPUT.PUT_LINE('Success: Candidate with ID ' || p_candidate_id || ' was removed.');
 
@@ -566,7 +670,7 @@ BEGIN
             (p_candidate_id IS NULL OR candidate_id = p_candidate_id) AND
             (p_email IS NULL OR LOWER(email) = LOWER(p_email)) AND
             (p_phone IS NULL OR phone = p_phone) AND
-            (p_id_proof_num IS NULL OR id_proof_num = p_id_proof_num);
+            (p_id_proof_num IS NULL OR LOWER(id_proof_num) = LOWER(p_id_proof_num));
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
             IF NOT valid_section THEN
@@ -744,7 +848,7 @@ BEGIN
     ) VALUES (
         v_new_emp_id, p_candidate_id,
         v_salary, p_department_id, SYSDATE, v_band_id,
-        v_manager_id, 'Active', (12 - EXTRACT(MONTH FROM sysdate) + 1) * 2,  v_role
+        v_manager_id, 'Active', (12 - EXTRACT(MONTH FROM sysdate) + 1) * 2,  INITCAP(v_role)
     );
 
     -- Output success message
@@ -777,292 +881,519 @@ CREATE OR REPLACE TRIGGER trg_validate_candidates
 BEFORE INSERT OR UPDATE ON candidates
 FOR EACH ROW
 DECLARE
-    lv2_type VARCHAR2(20);
+    lv2_type VARCHAR2(200);
     ln_age NUMBER;
-    lv_error_msgs VARCHAR2(100);
+    lv_error_msgs VARCHAR2(4000);
     l_count NUMBER;
 
 BEGIN
     -------------------------------------------------------------------
     -- Mandatory Fields Validation: Collect all missing ones
     -------------------------------------------------------------------
-  IF INSERTING THEN
     lv_error_msgs := '';
-
-    IF :NEW.first_name IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'First name is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.last_name IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'Last name is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.email IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'Email address is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.phone IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'Phone number is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.dob IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'Date of birth is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.gender IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'Gender is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.id_proof_type IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'ID proof type is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.id_proof_num IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'ID proof number is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.city IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'City is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.country IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'Country is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.highest_degree IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'Highest degree is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.university IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'University name is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.cgpa IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'CGPA is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.skills IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'Skills field is missing.' || CHR(10);
-    END IF;
-
-    IF :NEW.role IS NULL THEN 
-        lv_error_msgs := lv_error_msgs || 'Role is missing.' || CHR(10);
-    END IF;
-
-    -- Raise error if anything missing
-    IF lv_error_msgs IS NOT NULL THEN
-        RAISE_APPLICATION_ERROR(-20100,
-            'Please correct the following issues before submitting:' || CHR(10) || lv_error_msgs);
-    END IF;
-END IF;
-
-    -------------------------------------------------------------------
-    -- First Name
-    -------------------------------------------------------------------
-    IF INSERTING AND :NEW.first_name IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20001, 'First name is required.');
-    ELSIF :NEW.first_name IS NOT NULL THEN
-        IF LENGTH(:NEW.first_name) < 2 OR NOT REGEXP_LIKE(:NEW.first_name, '^[A-Za-z]+$') THEN
-            RAISE_APPLICATION_ERROR(-20002, 'First name must be at least 2 alphabetic characters.');
+    IF INSERTING OR UPDATING('first_name') THEN
+        IF :NEW.first_name IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- First name is missing.' || CHR(10);
+        ELSIF LENGTH(:NEW.first_name) < 2 OR NOT REGEXP_LIKE(:NEW.first_name, '^[A-Za-z]+$') THEN
+            lv_error_msgs := lv_error_msgs || '- First name must be at least 2 alphabetic characters.' || CHR(10);
         END IF;
     END IF;
-
-    -------------------------------------------------------------------
+        -------------------------------------------------------------------
     -- Last Name
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.last_name IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Last name is required.');
-    ELSIF :NEW.last_name IS NOT NULL THEN
-        IF LENGTH(:NEW.last_name) < 2 OR NOT REGEXP_LIKE(:NEW.last_name, '^[A-Za-z]+$') THEN
-            RAISE_APPLICATION_ERROR(-20004, 'Last name must be at least 2 alphabetic characters.');
+    IF INSERTING OR UPDATING('last_name') THEN
+        IF :NEW.last_name IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- Last name is missing.' || CHR(10);
+        ELSIF LENGTH(:NEW.last_name) < 2 OR NOT REGEXP_LIKE(:NEW.last_name, '^[A-Za-z]+$') THEN
+            lv_error_msgs := lv_error_msgs || '- Last name must be at least 2 alphabetic characters.' || CHR(10);
         END IF;
     END IF;
-
     -------------------------------------------------------------------
     -- Email
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.email IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20005, 'Email is required.');
-    ELSIF :NEW.email IS NOT NULL THEN
-        IF NOT REGEXP_LIKE(:NEW.email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') THEN
-            RAISE_APPLICATION_ERROR(-20006, 'Please enter a valid email address like user@example.com.');
+    IF INSERTING OR UPDATING('email') THEN
+        IF :NEW.email IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- Email is missing.' || CHR(10);
+        ELSIF NOT REGEXP_LIKE(:NEW.email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') THEN
+            lv_error_msgs := lv_error_msgs || '- Invalid email format and a valid email address like user@example.com' || CHR(10);
         END IF;
     END IF;
-
-    -------------------------------------------------------------------
+        -------------------------------------------------------------------
     -- Phone
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.phone IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20007, 'Phone number is required.');
-    ELSIF :NEW.phone IS NOT NULL THEN
-        IF LENGTH(:NEW.phone) != 10 OR SUBSTR(:NEW.phone, 1, 1) NOT IN ('6','7','8','9') THEN
-            RAISE_APPLICATION_ERROR(-20008, 'Phone must be 10 digits and start with 6-9.');
-        END IF;
-    END IF;
-
-    -------------------------------------------------------------------
-    -- DOB
-    -------------------------------------------------------------------
-    IF INSERTING AND :NEW.dob IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20009, 'Date of birth is required.');
-    ELSIF :NEW.dob IS NOT NULL THEN
-        SELECT TRUNC(MONTHS_BETWEEN(SYSDATE, :NEW.dob)/12) INTO ln_age FROM DUAL;
-        IF ln_age < 18 OR ln_age > 65 THEN
-            RAISE_APPLICATION_ERROR(-20010, 'Age must be between 18 and 65.');
-        END IF;
-        IF :NEW.years_of_experience IS NOT NULL THEN
-            IF :NEW.years_of_experience < 0 THEN
-                RAISE_APPLICATION_ERROR(-20006, 'Experience cannot be negative.');
-            ELSIF :NEW.years_of_experience > (ln_age - 18) THEN
-                RAISE_APPLICATION_ERROR(-20007, 'Experience is too high for your age. Please verify.');
-            ELSIF ln_age = 18 AND :NEW.years_of_experience != 0 THEN
-                RAISE_APPLICATION_ERROR(-20008, 'If your age is 18, your experience must be 0.');
+    IF INSERTING OR UPDATING('Phone') THEN
+        IF :NEW.phone IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- Phone number is missing.' || CHR(10);
+        ELSIF :NEW.phone IS NOT NULL THEN
+            IF LENGTH(:NEW.phone) != 10 OR SUBSTR(:NEW.phone, 1, 1) NOT IN ('6','7','8','9') THEN
+                lv_error_msgs := lv_error_msgs ||'- Phone must be 10 digits and start with 6-9.'|| CHR(10);
             END IF;
         END IF;
-
     END IF;
 
     -------------------------------------------------------------------
-    -- Gender
+
+   -------------------------------------------------------------------
+    -- DOB + Age Check
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.gender IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20011, 'Gender is required.');
-    ELSIF :NEW.gender IS NOT NULL THEN
-        IF UPPER(:NEW.gender) NOT IN ('M', 'F') THEN
-            RAISE_APPLICATION_ERROR(-20012, 'Gender must be either M or F.');
+    IF INSERTING OR UPDATING('dob') THEN
+        IF :NEW.dob IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- Date of birth is missing.' || CHR(10);
+        ELSE
+            SELECT TRUNC(MONTHS_BETWEEN(SYSDATE, :NEW.dob)/12) INTO ln_age FROM DUAL;
+            IF ln_age < 18 OR ln_age > 65 THEN
+                lv_error_msgs := lv_error_msgs || '- Age must be between 18 and 65.' || CHR(10);
+            END IF;
+
+            IF :NEW.years_of_experience IS NOT NULL THEN
+                IF :NEW.years_of_experience < 0 THEN
+                    lv_error_msgs := lv_error_msgs || '- Experience cannot be negative.' || CHR(10);
+                ELSIF :NEW.years_of_experience > (ln_age - 18) THEN
+                    lv_error_msgs := lv_error_msgs || '- Experience too high for your age.' || CHR(10);
+                ELSIF ln_age = 18 AND :NEW.years_of_experience != 0 THEN
+                    lv_error_msgs := lv_error_msgs || '- Experience must be 0 if age is 18.' || CHR(10);
+                END IF;
+            END IF;
         END IF;
     END IF;
-
+      -------------------------------------------------------------------
+    -- Gender
+    -------------------------------------------------------------------
+    IF INSERTING OR UPDATING('gender') THEN
+        IF :NEW.gender IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- Gender is missing.' || CHR(10);
+        ELSIF LOWER(:NEW.gender) NOT IN ('m', 'f') THEN
+            lv_error_msgs := lv_error_msgs || '- Gender must be "M" or "F".' || CHR(10);
+        END IF;
+    END IF;
     -------------------------------------------------------------------
     -- ID Proof Type
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.id_proof_type IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20013, 'ID proof type is required.');
-    ELSIF :NEW.id_proof_type IS NOT NULL THEN
-        lv2_type := UPPER(:NEW.id_proof_type);
-        IF lv2_type NOT IN ('AADHAR', 'PASSPORT', 'DL') THEN
-            RAISE_APPLICATION_ERROR(-20014, 'ID proof type must be Aadhar, Passport, or DL.');
+    IF INSERTING OR UPDATING('id_proof_type') THEN
+        IF :NEW.id_proof_type IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- ID proof type is required.' || CHR(10);
+        ELSIF :NEW.id_proof_type IS NOT NULL THEN
+            lv2_type := UPPER(:NEW.id_proof_type);
+            IF lv2_type NOT IN ('AADHAR', 'PASSPORT', 'DL') THEN
+                lv_error_msgs := lv_error_msgs || '- ID proof type must be Aadhar, Passport, or DL.' || CHR(10);
+            END IF;
+        ELSE
+            SELECT id_proof_type INTO lv2_type FROM candidates WHERE candidate_id = :NEW.candidate_id;
         END IF;
-    ELSE
-        SELECT id_proof_type INTO lv2_type FROM candidates WHERE candidate_id = :NEW.candidate_id;
     END IF;
-
     -------------------------------------------------------------------
     -- ID Proof Number
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.id_proof_num IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20015, 'ID proof number is required.');
-    ELSIF :NEW.id_proof_num IS NOT NULL THEN
-       IF lv2_type = 'AADHAR' THEN
-            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[2-9][0-9]{11}$') THEN
-                RAISE_APPLICATION_ERROR(-20016, 'Invalid Aadhar number. It must be 12 digits and start with a digit from 2 to 9.');
+    IF INSERTING OR UPDATING('id_proof_num') THEN
+        IF :NEW.id_proof_num IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- ID proof number is required.' || CHR(10);
+        ELSIF lv2_type IS NOT NULL THEN
+            IF UPPER(lv2_type) = 'AADHAR' AND NOT REGEXP_LIKE(:NEW.id_proof_num, '^[2-9][0-9]{11}$') THEN
+                lv_error_msgs := lv_error_msgs || '- Invalid Aadhar number. Must be 12 digits starting from 2–9.' || CHR(10);
+            ELSIF UPPER(lv2_type) = 'PASSPORT' AND NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Za-z][0-9]{7}$') THEN
+                lv_error_msgs := lv_error_msgs || '- Invalid Passport number. Format: A1234567.' || CHR(10);
+            ELSIF UPPER(lv2_type) = 'DL' AND NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Za-z0-9]{13,15}$') THEN
+                lv_error_msgs := lv_error_msgs || '- Invalid DL number. Must be 13–15 alphanumeric characters.' || CHR(10);
             END IF;
-        ELSIF lv2_type = 'PASSPORT' THEN
-            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Z][0-9]{7}$') THEN
-                RAISE_APPLICATION_ERROR(-20017, 'Invalid Passport number. Format: A1234567.');
-            END IF;
-        ELSIF lv2_type = 'DL' THEN
-            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Z0-9]{13,15}$') THEN
-                RAISE_APPLICATION_ERROR(-20018, 'Invalid DL number. Must be alphanumeric (13-15 characters).');
-            END IF;
-
         END IF;
     END IF;
-
     -------------------------------------------------------------------
     -- City
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.city IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20019, 'City is required.');
-    ELSIF :NEW.city IS NOT NULL THEN
-        IF NOT REGEXP_LIKE(:NEW.city, '^[A-Za-z ]+$') THEN
-            RAISE_APPLICATION_ERROR(-20020, 'City name must contain only spaces and alphabetic characters.');
+    IF INSERTING OR UPDATING('city') THEN
+        IF :NEW.city IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- City is required.' || CHR(10);
+        ELSIF NOT REGEXP_LIKE(:NEW.city, '^[A-Za-z ]+$') THEN
+            lv_error_msgs := lv_error_msgs || '- City must contain only letters and spaces.' || CHR(10);
         END IF;
     END IF;
-
-    -------------------------------------------------------------------
+       -------------------------------------------------------------------
     -- Country
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.country IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20021, 'Country is required.');
-    ELSIF :NEW.country IS NOT NULL THEN
-        IF NOT REGEXP_LIKE(:NEW.country, '^[A-Za-z ]+$') THEN
-            RAISE_APPLICATION_ERROR(-20022, 'Country name must contain only spaces and alphabetic characters.');
+    IF INSERTING OR UPDATING('country') THEN
+        IF :NEW.country IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- Country is required.' || CHR(10);
+        ELSIF NOT REGEXP_LIKE(:NEW.country, '^[A-Za-z ]+$') THEN
+            lv_error_msgs := lv_error_msgs || '- Country must contain only letters and spaces.' || CHR(10);
         END IF;
     END IF;
 
     -------------------------------------------------------------------
     -- Highest Degree
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.highest_degree IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20023, 'Highest degree is required.');
-    ELSIF :NEW.highest_degree IS NOT NULL THEN
-        IF LENGTH(:NEW.highest_degree) < 2 THEN
-            RAISE_APPLICATION_ERROR(-20024, 'Highest degree must be at least 2 characters.');
+    IF INSERTING OR UPDATING('highest_degree') THEN
+        IF :NEW.highest_degree IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- Highest degree is required.' || CHR(10);
+        ELSIF LENGTH(:NEW.highest_degree) < 2 THEN
+            lv_error_msgs := lv_error_msgs || '- Highest degree must be at least 2 characters.' || CHR(10);
         END IF;
     END IF;
-
     -------------------------------------------------------------------
     -- University
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.university IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20025, 'University is required.');
-    ELSIF :NEW.university IS NOT NULL THEN
-        IF LENGTH(:NEW.university) < 2 THEN
-            RAISE_APPLICATION_ERROR(-20026, 'University must be at least 2 characters.');
+    IF INSERTING OR UPDATING('university') THEN
+        IF :NEW.university IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- University is required.' || CHR(10);
+        ELSIF LENGTH(:NEW.university) < 2 THEN
+            lv_error_msgs := lv_error_msgs || '- University must be at least 2 characters.' || CHR(10);
         END IF;
     END IF;
 
     -------------------------------------------------------------------
     -- CGPA
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.cgpa IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20027, 'CGPA is required.');
-    ELSIF :NEW.cgpa IS NOT NULL THEN
-        IF :NEW.cgpa < 0 OR :NEW.cgpa > 10 THEN
-            RAISE_APPLICATION_ERROR(-20028, 'CGPA must be between 0 and 10.');
+    IF INSERTING OR UPDATING('cgpa') THEN
+        IF :NEW.cgpa IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- CGPA is required.' || CHR(10);
+        ELSIF :NEW.cgpa < 0 OR :NEW.cgpa > 10 THEN
+            lv_error_msgs := lv_error_msgs || '- CGPA must be between 0 and 10.' || CHR(10);
         END IF;
     END IF;
-
     -------------------------------------------------------------------
     -- Skills
     -------------------------------------------------------------------
-    IF INSERTING AND :NEW.skills IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20029, 'Skills are required.');
-    ELSIF :NEW.skills IS NOT NULL THEN
-        IF LENGTH(:NEW.skills) < 1 THEN
-            RAISE_APPLICATION_ERROR(-20030, 'Skills must be at least 1 characters.');
+    IF INSERTING OR UPDATING('skills') THEN
+        IF :NEW.skills IS NULL THEN
+            lv_error_msgs := lv_error_msgs || '- Skills are required.' || CHR(10);
+        ELSIF :NEW.skills IS NOT NULL THEN
+            IF LENGTH(:NEW.skills) < 1 THEN
+               lv_error_msgs := lv_error_msgs ||'- Skills must be at least 1 characters.'||CHR(10);
+            END IF;
         END IF;
     END IF;
-    
+ -------------------------------------------------------------------
+    -- Salary Comparison
+    -------------------------------------------------------------------
     IF :NEW.last_salary IS NOT NULL AND :NEW.expected_salary IS NOT NULL THEN
         IF :NEW.expected_salary < :NEW.last_salary THEN
-            RAISE_APPLICATION_ERROR(-20031, 'Expected salary must be greater than or equal to last salary.');
+            lv_error_msgs := lv_error_msgs || '- Expected salary must be >= last salary.' || CHR(10);
         END IF;
     END IF;
+    -------------------------------------------------------------------
+    -- Status
+    -------------------------------------------------------------------
+    IF :NEW.status IS NOT NULL THEN
+        IF LOWER(:NEW.status) NOT IN ('active', 'inactive') THEN
+            lv_error_msgs := lv_error_msgs || '- Status must be either "active" or "inactive".' || CHR(10);
+        END IF;
+    END IF;
+    --------------------------------------------------------------------
+    ---ROLE
+    ---------------------------------------------------------------------
+    IF INSERTING OR UPDATING('role') THEN
+       IF :NEW.role IS NULL THEN
+        lv_error_msgs := lv_error_msgs || '- Role is required.' || CHR(10);
+        ELSIF NOT REGEXP_LIKE(:NEW.role, '^[A-Za-z ]+$') THEN
+            lv_error_msgs := lv_error_msgs || '- Role must contain only letters and spaces.' || CHR(10);
+        END IF;
+    END IF;
+
+
+-- Validate 'interview_status' if provided
+    IF :NEW.interview_status IS NOT NULL THEN
+        IF LOWER(:NEW.interview_status) NOT IN ('selected', 'rejected', 'in progress') THEN
+            lv_error_msgs := lv_error_msgs || '- Interview status must be "selected", "rejected", or "in progress".' || CHR(10);
+        END IF;
     
-    IF :new.status IS NOT NULL THEN
-        IF LOWER(:new.status) NOT IN ('active', 'inactive') THEN
-            RAISE_APPLICATION_ERROR(-20032,'Status must be either "active" or "inactive". ');
+        -- If interview_status is rejected, rejection_reason must be provided
+        IF LOWER(:NEW.interview_status) = 'rejected' AND (:NEW.rejection_reason IS NULL OR TRIM(:NEW.rejection_reason) = '') THEN
+            lv_error_msgs := lv_error_msgs || '- Rejection reason is required when interview status is "rejected".' || CHR(10);
         END IF;
     END IF;
 
-    -- Validate 'interview_status' if provided
-    IF :new.interview_status IS NOT NULL THEN
-        IF LOWER(:new.interview_status) NOT IN ('selected', 'rejected', 'in progress') THEN
-           RAISE_APPLICATION_ERROR(-20033, 'Interview status must be "selected", "rejected", or "in progress".') ;
-        END IF;
-
-        -- If interview_status is rejected, rejection_reason must be given
-        IF LOWER(:new.interview_status) = 'rejected' AND (:new.rejection_reason IS NULL OR TRIM(:new.rejection_reason) = '') THEN
-           RAISE_APPLICATION_ERROR(-20034,'Rejection reason is required when interview status is "rejected". ');
-        END IF;
+    IF lv_error_msgs IS NOT NULL THEN
+            RAISE_APPLICATION_ERROR(
+                -20001,
+                'Your input could not be saved due to the following issues:' || CHR(10) || lv_error_msgs
+            );
     END IF;
-
 
 END;
-
 /
+--  IF INSERTING THEN
+--    lv_error_msgs := '';
+--
+--    IF :NEW.first_name IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'First name is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.last_name IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'Last name is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.email IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'Email address is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.phone IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'Phone number is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.dob IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'Date of birth is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.gender IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'Gender is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.id_proof_type IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'ID proof type is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.id_proof_num IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'ID proof number is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.city IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'City is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.country IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'Country is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.highest_degree IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'Highest degree is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.university IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'University name is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.cgpa IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'CGPA is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.skills IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'Skills field is missing.' || CHR(10);
+--    END IF;
+--
+--    IF :NEW.role IS NULL THEN 
+--        lv_error_msgs := lv_error_msgs || 'Role is missing.' || CHR(10);
+--    END IF;
+--
+--    -- Raise error if anything missing
+--    IF lv_error_msgs IS NOT NULL THEN
+--        RAISE_APPLICATION_ERROR(-20100,
+--            'Please correct the following issues before submitting:' || CHR(10) || lv_error_msgs);
+--    END IF;
+--END IF;
+
+--    -------------------------------------------------------------------
+--    -- First Name
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.first_name IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20001, 'First name is required.');
+--    ELSIF :NEW.first_name IS NOT NULL THEN
+--        IF LENGTH(:NEW.first_name) < 2 OR NOT REGEXP_LIKE(:NEW.first_name, '^[A-Za-z]+$') THEN
+--            RAISE_APPLICATION_ERROR(-20002, 'First name must be at least 2 alphabetic characters.');
+--        END IF;
+--    END IF;
+--
+--    -------------------------------------------------------------------
+--    -- Last Name
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.last_name IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20003, 'Last name is required.');
+--    ELSIF :NEW.last_name IS NOT NULL THEN
+--        IF LENGTH(:NEW.last_name) < 2 OR NOT REGEXP_LIKE(:NEW.last_name, '^[A-Za-z]+$') THEN
+--            RAISE_APPLICATION_ERROR(-20004, 'Last name must be at least 2 alphabetic characters.');
+--        END IF;
+--    END IF;
+
+--    -------------------------------------------------------------------
+--    -- Email
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.email IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20005, 'Email is required.');
+--    ELSIF :NEW.email IS NOT NULL THEN
+--        IF NOT REGEXP_LIKE(:NEW.email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') THEN
+--            RAISE_APPLICATION_ERROR(-20006, 'Please enter a valid email address like user@example.com.');
+--        END IF;
+--    END IF;
+
+--    -------------------------------------------------------------------
+--    -- Phone
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.phone IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20007, 'Phone number is required.');
+--    ELSIF :NEW.phone IS NOT NULL THEN
+--        IF LENGTH(:NEW.phone) != 10 OR SUBSTR(:NEW.phone, 1, 1) NOT IN ('6','7','8','9') THEN
+--            RAISE_APPLICATION_ERROR(-20008, 'Phone must be 10 digits and start with 6-9.');
+--        END IF;
+--    END IF;
+
+--    -------------------------------------------------------------------
+--    -- DOB
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.dob IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20009, 'Date of birth is required.');
+--    ELSIF :NEW.dob IS NOT NULL THEN
+--        SELECT TRUNC(MONTHS_BETWEEN(SYSDATE, :NEW.dob)/12) INTO ln_age FROM DUAL;
+--        IF ln_age < 18 OR ln_age > 65 THEN
+--            RAISE_APPLICATION_ERROR(-20010, 'Age must be between 18 and 65.');
+--        END IF;
+--        IF :NEW.years_of_experience IS NOT NULL THEN
+--            IF :NEW.years_of_experience < 0 THEN
+--                RAISE_APPLICATION_ERROR(-20006, 'Experience cannot be negative.');
+--            ELSIF :NEW.years_of_experience > (ln_age - 18) THEN
+--                RAISE_APPLICATION_ERROR(-20007, 'Experience is too high for your age. Please verify.');
+--            ELSIF ln_age = 18 AND :NEW.years_of_experience != 0 THEN
+--                RAISE_APPLICATION_ERROR(-20008, 'If your age is 18, your experience must be 0.');
+--            END IF;
+--        END IF;
+--
+--    END IF;
+
+--    -------------------------------------------------------------------
+--    -- Gender
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.gender IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20011, 'Gender is required.');
+--    ELSIF :NEW.gender IS NOT NULL THEN
+--        IF UPPER(:NEW.gender) NOT IN ('M', 'F') THEN
+--            RAISE_APPLICATION_ERROR(-20012, 'Gender must be either M or F.');
+--        END IF;
+--    END IF;
+
+--    -------------------------------------------------------------------
+--    -- ID Proof Type
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.id_proof_type IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20013, 'ID proof type is required.');
+--    ELSIF :NEW.id_proof_type IS NOT NULL THEN
+--        lv2_type := UPPER(:NEW.id_proof_type);
+--        IF lv2_type NOT IN ('AADHAR', 'PASSPORT', 'DL') THEN
+--            RAISE_APPLICATION_ERROR(-20014, 'ID proof type must be Aadhar, Passport, or DL.');
+--        END IF;
+--    ELSE
+--        SELECT id_proof_type INTO lv2_type FROM candidates WHERE candidate_id = :NEW.candidate_id;
+--    END IF;
+
+--    -------------------------------------------------------------------
+--    -- ID Proof Number
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.id_proof_num IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20015, 'ID proof number is required.');
+--    ELSIF :NEW.id_proof_num IS NOT NULL THEN
+--       IF lv2_type = 'AADHAR' THEN
+--            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[2-9][0-9]{11}$') THEN
+--                RAISE_APPLICATION_ERROR(-20016, 'Invalid Aadhar number. It must be 12 digits and start with a digit from 2 to 9.');
+--            END IF;
+--        ELSIF lv2_type = 'PASSPORT' THEN
+--            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Za-z][0-9]{7}$') THEN
+--                RAISE_APPLICATION_ERROR(-20017, 'Invalid Passport number. Format: A1234567.');
+--            END IF;
+--        ELSIF lv2_type = 'DL' THEN
+--            IF NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Za-z0-9]{13,15}$') THEN
+--                RAISE_APPLICATION_ERROR(-20018, 'Invalid DL number. Must be alphanumeric (13-15 characters).');
+--            END IF;
+--
+--        END IF;
+--    END IF;
+--
+--    -------------------------------------------------------------------
+--    -- City
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.city IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20019, 'City is required.');
+--    ELSIF :NEW.city IS NOT NULL THEN
+--        IF NOT REGEXP_LIKE(:NEW.city, '^[A-Za-z ]+$') THEN
+--            RAISE_APPLICATION_ERROR(-20020, 'City name must contain only spaces and alphabetic characters.');
+--        END IF;
+--    END IF;
+
+--    -------------------------------------------------------------------
+--    -- Country
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.country IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20021, 'Country is required.');
+--    ELSIF :NEW.country IS NOT NULL THEN
+--        IF NOT REGEXP_LIKE(:NEW.country, '^[A-Za-z ]+$') THEN
+--            RAISE_APPLICATION_ERROR(-20022, 'Country name must contain only spaces and alphabetic characters.');
+--        END IF;
+--    END IF;
+--
+--    -------------------------------------------------------------------
+--    -- Highest Degree
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.highest_degree IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20023, 'Highest degree is required.');
+--    ELSIF :NEW.highest_degree IS NOT NULL THEN
+--        IF LENGTH(:NEW.highest_degree) < 2 THEN
+--            RAISE_APPLICATION_ERROR(-20024, 'Highest degree must be at least 2 characters.');
+--        END IF;
+--    END IF;
+--
+--    -------------------------------------------------------------------
+--    -- University
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.university IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20025, 'University is required.');
+--    ELSIF :NEW.university IS NOT NULL THEN
+--        IF LENGTH(:NEW.university) < 2 THEN
+--            RAISE_APPLICATION_ERROR(-20026, 'University must be at least 2 characters.');
+--        END IF;
+--    END IF;
+--
+--    -------------------------------------------------------------------
+--    -- CGPA
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.cgpa IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20027, 'CGPA is required.');
+--    ELSIF :NEW.cgpa IS NOT NULL THEN
+--        IF :NEW.cgpa < 0 OR :NEW.cgpa > 10 THEN
+--            RAISE_APPLICATION_ERROR(-20028, 'CGPA must be between 0 and 10.');
+--        END IF;
+--    END IF;
+
+--    -------------------------------------------------------------------
+--    -- Skills
+--    -------------------------------------------------------------------
+--    IF INSERTING AND :NEW.skills IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20029, 'Skills are required.');
+--    ELSIF :NEW.skills IS NOT NULL THEN
+--        IF LENGTH(:NEW.skills) < 1 THEN
+--            RAISE_APPLICATION_ERROR(-20030, 'Skills must be at least 1 characters.');
+--        END IF;
+--    END IF;
+    
+--    IF :NEW.last_salary IS NOT NULL AND :NEW.expected_salary IS NOT NULL THEN
+--        IF :NEW.expected_salary < :NEW.last_salary THEN
+--            RAISE_APPLICATION_ERROR(-20031, 'Expected salary must be greater than or equal to last salary.');
+--        END IF;
+--    END IF;
+    
+--    IF :new.status IS NOT NULL THEN
+--        IF LOWER(:new.status) NOT IN ('active', 'inactive') THEN
+--            RAISE_APPLICATION_ERROR(-20032,'Status must be either "active" or "inactive". ');
+--        END IF;
+--    END IF;
+--
+--    -- Validate 'interview_status' if provided
+--    IF :new.interview_status IS NOT NULL THEN
+--        IF LOWER(:new.interview_status) NOT IN ('selected', 'rejected', 'in progress') THEN
+--           RAISE_APPLICATION_ERROR(-20033, 'Interview status must be "selected", "rejected", or "in progress".') ;
+--        END IF;
+--
+--        -- If interview_status is rejected, rejection_reason must be given
+--        IF LOWER(:new.interview_status) = 'rejected' AND (:new.rejection_reason IS NULL OR TRIM(:new.rejection_reason) = '') THEN
+--           RAISE_APPLICATION_ERROR(-20034,'Rejection reason is required when interview status is "rejected". ');
+--        END IF;
+--    END IF;
+
+    ----------------------------------------------------------------------
+    -- Raise All Collected Errors at Once
+    ----------------------------------------------------------------------
+
+--    IF lv_error_msgs IS NOT NULL THEN
+--        RAISE_APPLICATION_ERROR(-20001, 'Validation failed for the following reason(s):' || CHR(10) || lv_error_msgs);
+--    END IF;
+--
+--END;
+--
+--/
 
 CREATE OR REPLACE TRIGGER trg_check_candidate_duplicates
 FOR INSERT OR UPDATE ON candidates
@@ -1079,19 +1410,58 @@ COMPOUND TRIGGER
 
     v_new_candidates candidate_tab;
     ln_idx PLS_INTEGER := 0;
+    lv_error_msgs VARCHAR2(1000) := '';
+
 
 AFTER EACH ROW IS
 BEGIN
     ln_idx := ln_idx + 1;
     v_new_candidates(ln_idx).email := LOWER(:NEW.email);
     v_new_candidates(ln_idx).phone := :NEW.phone;
-    v_new_candidates(ln_idx).id_proof_num := :NEW.id_proof_num;
+    v_new_candidates(ln_idx).id_proof_num :=UPPER( :NEW.id_proof_num);
     v_new_candidates(ln_idx).candidate_id := :NEW.candidate_id;
 END AFTER EACH ROW;
 
 AFTER STATEMENT IS
     ln_count NUMBER;
 BEGIN
+--    FOR i IN 1 .. v_new_candidates.COUNT LOOP
+--        -- Check for duplicate email
+--        IF v_new_candidates(i).email IS NOT NULL THEN
+--            SELECT COUNT(*) INTO ln_count
+--            FROM candidates
+--            WHERE LOWER(email) = v_new_candidates(i).email
+--              AND (candidate_id != v_new_candidates(i).candidate_id OR v_new_candidates(i).candidate_id IS NULL);
+--
+--            IF ln_count > 0 THEN
+--                RAISE_APPLICATION_ERROR(-20040, 'The email address "' || v_new_candidates(i).email || '" is already registered. Please use a different email.');
+--            END IF;
+--        END IF;
+--
+--        -- Check for duplicate phone
+--        IF v_new_candidates(i).phone IS NOT NULL THEN
+--            SELECT COUNT(*) INTO ln_count
+--            FROM candidates
+--            WHERE phone = v_new_candidates(i).phone
+--              AND (candidate_id != v_new_candidates(i).candidate_id OR v_new_candidates(i).candidate_id IS NULL);
+--
+--            IF ln_count > 0 THEN
+--                RAISE_APPLICATION_ERROR(-20041, 'The phone number "' || v_new_candidates(i).phone || '" is already registered. Please use a different phone number.');
+--            END IF;
+--        END IF;
+--
+--        -- Check for duplicate ID proof
+--        IF v_new_candidates(i).id_proof_num IS NOT NULL THEN
+--            SELECT COUNT(*) INTO ln_count
+--            FROM candidates
+--            WHERE id_proof_num = v_new_candidates(i).id_proof_num
+--              AND (candidate_id != v_new_candidates(i).candidate_id OR v_new_candidates(i).candidate_id IS NULL);
+--
+--            IF ln_count > 0 THEN
+--                RAISE_APPLICATION_ERROR(-20042, 'The ID proof number "' || v_new_candidates(i).id_proof_num || '" is already registered. Please use a different ID proof.');
+--            END IF;
+--        END IF;
+--    END LOOP;
     FOR i IN 1 .. v_new_candidates.COUNT LOOP
         -- Check for duplicate email
         IF v_new_candidates(i).email IS NOT NULL THEN
@@ -1101,7 +1471,7 @@ BEGIN
               AND (candidate_id != v_new_candidates(i).candidate_id OR v_new_candidates(i).candidate_id IS NULL);
 
             IF ln_count > 0 THEN
-                RAISE_APPLICATION_ERROR(-20040, 'The email address "' || v_new_candidates(i).email || '" is already registered. Please use a different email.');
+                lv_error_msgs := lv_error_msgs || '- The email "' || v_new_candidates(i).email || '" is already registered.' || CHR(10);
             END IF;
         END IF;
 
@@ -1113,7 +1483,7 @@ BEGIN
               AND (candidate_id != v_new_candidates(i).candidate_id OR v_new_candidates(i).candidate_id IS NULL);
 
             IF ln_count > 0 THEN
-                RAISE_APPLICATION_ERROR(-20041, 'The phone number "' || v_new_candidates(i).phone || '" is already registered. Please use a different phone number.');
+                lv_error_msgs := lv_error_msgs || '- The phone number "' || v_new_candidates(i).phone || '" is already registered.' || CHR(10);
             END IF;
         END IF;
 
@@ -1121,14 +1491,18 @@ BEGIN
         IF v_new_candidates(i).id_proof_num IS NOT NULL THEN
             SELECT COUNT(*) INTO ln_count
             FROM candidates
-            WHERE id_proof_num = v_new_candidates(i).id_proof_num
+            WHERE UPPER(id_proof_num) = v_new_candidates(i).id_proof_num
               AND (candidate_id != v_new_candidates(i).candidate_id OR v_new_candidates(i).candidate_id IS NULL);
 
             IF ln_count > 0 THEN
-                RAISE_APPLICATION_ERROR(-20042, 'The ID proof number "' || v_new_candidates(i).id_proof_num || '" is already registered. Please use a different ID proof.');
+                lv_error_msgs := lv_error_msgs || '- The ID proof number "' || v_new_candidates(i).id_proof_num || '" is already registered.' || CHR(10);
             END IF;
         END IF;
     END LOOP;
+    IF lv_error_msgs IS NOT NULL THEN
+        RAISE_APPLICATION_ERROR(-20050, 'Please fix the following issues:' || CHR(10) || lv_error_msgs);
+    END IF;
+
 END AFTER STATEMENT;
 
 END trg_check_candidate_duplicates;

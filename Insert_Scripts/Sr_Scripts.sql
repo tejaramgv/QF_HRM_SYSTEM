@@ -1,59 +1,17 @@
-<<<<<<< HEAD
 BEGIN
   source_requirement.ADD_CANDIDATE(
     p_first_name => 'Lahari',
     p_last_name => 'Narravula',
-    p_email => 'nlahari139@gmail.com',
-    p_phone => 6762425611,
+    p_email => 'nlahari12@gmail.com',
+    p_phone => 6962425611,
     p_dob => '13-Jul-2004',
     p_id_proof_type => 'Passport',
-    p_id_proof_num => 'A1211567',
+    p_id_proof_num => 'A1717567',
     p_highest_degree => 'B.Tech',
     p_university => 'JNTU',
     p_cgpa => 8.9,
-    p_city => 'Hyderabad',
-    p_country => 'India',
-    p_last_employer => 'Infosys',
-    p_last_salary => 500000,
-    p_expected_salary => 600000,
-    p_years_of_experience => 2,
-    p_skills => 'Python, SQL',
-    p_gender => 'M',
-    p_role => 'Backend Developer'
-  );
-END;
-/
-=======
-
->>>>>>> 634ce51f6a45e7194b3360d1bf742de0c90a88a3
-select * from candidates;
-select * from employee;
-set serveroutput on;
-BEGIN
-    source_requirement.UPDATE_CANDIDATE(
-        p_candidate_id =>111,
-        p_gender=>'m'
-    );
-END;
-/
---rejected reason is required when rejected
---give valid error msg for email,id_proof_type
-set serveroutput on;
-select * from candidates;
-BEGIN
-  source_requirement.ADD_CANDIDATE(
-    p_first_name => 'lahari',
-    p_last_name => 'Narravula',
-    p_email => 'lahari@gmail.com',
-    p_phone => 7701425607,
-    p_dob => TO_DATE('2005-06-13', 'YYYY-MM-DD'),
-    p_id_proof_type => 'DL',
-    p_id_proof_num => 'QL5013700898057',
-    p_highest_degree => 'B.Tech',
-    p_university => 'JNTU',
-    p_cgpa => 8.9,
-    p_city => 'Hyderabad',
-    p_country => 'India',
+    p_city => 'hyderabad',
+    p_country => 'india',
     p_last_employer => 'Infosys',
     p_last_salary => 500000,
     p_expected_salary => 600000,
@@ -64,7 +22,80 @@ BEGIN
   );
 END;
 /
+select * from candidates;
+--check dob and parameter size
+--do case insensitive
+BEGIN
+  source_requirement.ADD_CANDIDATE(
+    p_first_name => 'Lahari',
+    p_last_name => 'Narravula',
+    p_email => 'lahar36@gmail.com',
+    p_phone =>9791415601,
+    p_dob => '12-Jun-2004',
+    p_id_proof_type => 'aadhar',
+    p_id_proof_num =>237332211110,
+    p_highest_degree => 'b.tech',
+    p_university => 'jntu',
+    p_cgpa => 9.8,
+    p_city => 'hyderabad',
+    p_country =>'indIA',
+    p_last_employer => Null,
+    p_last_salary => Null,
+    p_expected_salary =>Null,
+    p_years_of_experience => Null,
+    p_skills => 'python,sql',
+    p_gender => 'F',
+    p_role =>'software engineer'
+  );
+END;
+/
+ALTER TABLE Candidates DROP CONSTRAINT UNIQ_ID_PROOF;
+select * from candidates;
+select * from employee;
+set serveroutput on;
+BEGIN
+    source_requirement.UPDATE_CANDIDATE(
+        p_candidate_id =>138,
+        p_gender=>'m',
+        p_Interview_status=>'rejected',
+        p_rejection_reason=>'Poor skills',
+        p_role=>'backend developer'
+        
+    );
+END;
+/
+--check all sensitives in rejection
+--check the trigger
+--rejected reason is required when rejected
+--give valid error msg for email,id_proof_type
+set serveroutput on;
+select * from candidates;
+BEGIN
+  source_requirement.ADD_CANDIDATE(
+    p_first_name => 'laari',
+    p_last_name => 'Narravula',
+    p_email => 'lahar6@gmail.com',
+    p_phone => 9791485601,
+    p_dob => TO_DATE('2005-06-13', 'YYYY-MM-DD'),
+    p_id_proof_type => 'dl',
+    p_id_proof_num => 'ml923802378057',
+    p_highest_degree => 'B.Tech',
+    p_university => 'JntU',
+    p_cgpa => 8.9,
+    p_city => 'hyderabad',
+    p_country => 'india',
+    p_last_employer => 'infosys',
+    p_last_salary => 500000,
+    p_expected_salary => 600000,
+    p_years_of_experience => 2,
+    p_skills => 'Python, sql',
+    p_gender => 'f',
+    p_role => 'BacKEnd Developer'
+  );
+END;
+/
 
+--ALTER TABLE candidates DROP CONSTRAINT SYS_C008620;
 SET SERVEROUTPUT ON;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
@@ -80,27 +111,28 @@ select * from candidates;
 
 EXEC source_requirement.list_candidates;
 set serveroutput on;
-EXEC source_requirement.list_candidates(p_status=>'Selected');
-
+EXEC source_requirement.list_candidates(p_interview_status=>'selected',P_city=>'hyderabad');
+--name,experience,all mandatory fields(take all parameters)
 EXEC source_requirement.list_candidates(p_country => 'India', p_skill => 'Java');
 --invlude name,pre_company,status,
 EXEC source_requirement.list_candidates(p_id_proof_type => 'aadhar');
 SET SERVEROUTPUT ON SIZE UNLIMITED;
 
 ---inactive the status when selected
-EXEC source_requirement.get_candidate_details(p_candidate_id=>1,p_detail_type=>'abc');
+EXEC source_requirement.get_candidate_details(p_candidate_id=>1,p_detail_type=>'academic');
+--do case insensitive,valid msg for candidate
 --valid masg,parameter valid
 --check section first then do candiadteid
 
-EXEC source_requirement.promote_candidate_to_employee(59,4,700000);
-
+EXEC source_requirement.promote_candidate_to_employee(129,4,700000);
+--it required field(salary)
+--once candidate id exists in employee don't add again
 set serveroutput on;
 EXEC pkg_emp_ops.add_department(p_department_name=>'pRocurement',p_city_id=>22);
 
-<<<<<<< HEAD
 EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1077);
 
-
+select * from employee;
 select * from candidates;
 select * from employee;
 select * from department;
@@ -328,13 +360,12 @@ SELECT *
 FROM candidates
 WHERE LOWER(interview_status) = 'rejected'
   AND (rejection_reason IS NULL OR TRIM(rejection_reason) = '');
-=======
+
 EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1035);
 set serveroutput on;
 -- All employees
 EXEC pkg_emp_ops.list_employees(p_country_id=>100);
->>>>>>> 634ce51f6a45e7194b3360d1bf742de0c90a88a3
-
+set serveroutput on;
 --get emp details
 EXEC pkg_emp_ops.get_employee_details(10009); 
 
@@ -344,10 +375,8 @@ set serveroutput on;
 
 select * from master_data;
 select * from candidates;
-<<<<<<< HEAD
-
-=======
->>>>>>> 634ce51f6a45e7194b3360d1bf742de0c90a88a3
 select * from employee;
 
 --DELETE FROM Employee WHERE candidate_id=1;
+drop trigger trg_validate_candidate;
+drop trigger trg_validate_candidates;
