@@ -313,7 +313,7 @@ BEGIN
             v_band_found := TRUE;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                RAISE_APPLICATION_ERROR(-20002, 'â?Œ No suitable band found for given role, salary, and experience.');
+                RAISE_APPLICATION_ERROR(-20002, 'ï¿½?ï¿½ No suitable band found for given role, salary, and experience.');
         END;
     END IF;
 
@@ -395,9 +395,9 @@ BEGIN
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ No such employee exists.');
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ No such employee exists.');
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ error: ' || SQLERRM);
 END;
 
 PROCEDURE add_department (
@@ -416,7 +416,7 @@ BEGIN
       AND city_id = p_city_id;
 
     IF v_exists > 0 THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Department "' || p_department_name || '" already exists in city ID ' || p_city_id || '.');
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Department "' || p_department_name || '" already exists in city ID ' || p_city_id || '.');
         RETURN;
     END IF;
 
@@ -441,7 +441,7 @@ BEGIN
     
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Unexpected error during department insertion: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Unexpected error during department insertion: ' || SQLERRM);
 END;
 
 
@@ -479,7 +479,7 @@ BEGIN
       AND department_id != p_department_id;
 
     IF v_count > 0 THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Department name "' || v_new_name || '" already exists in city ID ' || v_new_city || '.');
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Department name "' || v_new_name || '" already exists in city ID ' || v_new_city || '.');
         RETURN;
     END IF;
 
@@ -502,7 +502,7 @@ BEGIN
           AND department_id = p_department_id;
 
         IF v_count = 0 THEN
-            RAISE_APPLICATION_ERROR(-20010, 'â?Œ Manager must belong to the same department.');
+            RAISE_APPLICATION_ERROR(-20010, 'ï¿½?ï¿½ Manager must belong to the same department.');
         END IF;
 
         -- Assign manager to department
@@ -526,9 +526,9 @@ BEGIN
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Department with ID ' || p_department_id || ' not found.');
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Department with ID ' || p_department_id || ' not found.');
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Unexpected error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Unexpected error: ' || SQLERRM);
 END;
 
 
