@@ -230,3 +230,17 @@ ADD CONSTRAINT uniq_dept_city UNIQUE (department_name, city_id);
 ALTER TABLE department
 MODIFY city_id NOT NULL;
 
+
+SELECT constraint_name, column_name
+FROM user_cons_columns
+WHERE table_name = 'CANDIDATES'
+  AND column_name IN ('PHONE', 'EMAIL', 'ID_PROOF_NUM');
+
+
+ALTER TABLE candidates DROP CONSTRAINT SYS_C008277 ;
+ALTER TABLE candidates DROP CONSTRAINT SYS_C008278;
+ALTER TABLE candidates DROP CONSTRAINT SYS_C008288;
+ALTER TABLE candidates DROP CONSTRAINT UNIQ_ID_PROOF;
+ALTER TABLE candidates DROP CONSTRAINT UNIQUE_PHONE;
+
+

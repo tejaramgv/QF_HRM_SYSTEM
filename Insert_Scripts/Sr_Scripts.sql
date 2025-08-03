@@ -1,12 +1,12 @@
 BEGIN
   source_requirement.ADD_CANDIDATE(
-    p_first_name => 'Lahari',
-    p_last_name => 'Narravula',
-    p_email => 'nlahari12@gmail.com',
-    p_phone => 6962425611,
+    p_first_name => 'aNitha',
+    p_last_name => 'kEtha',
+    p_email => 'anitha2@gmail.com',
+    p_phone => 6962425612,
     p_dob => '13-Jul-2004',
     p_id_proof_type => 'Passport',
-    p_id_proof_num => 'A1717567',
+    p_id_proof_num => 'A1717569',
     p_highest_degree => 'B.Tech',
     p_university => 'JNTU',
     p_cgpa => 8.9,
@@ -72,13 +72,13 @@ set serveroutput on;
 select * from candidates;
 BEGIN
   source_requirement.ADD_CANDIDATE(
-    p_first_name => 'laari',
-    p_last_name => 'Narravula',
-    p_email => 'lahar6@gmail.com',
-    p_phone => 9791485601,
+    p_first_name => 'priya',
+    p_last_name => 'gajjala',
+    p_email => 'priyanka111@gmail.com',
+    p_phone => 9791485612,
     p_dob => TO_DATE('2005-06-13', 'YYYY-MM-DD'),
     p_id_proof_type => 'dl',
-    p_id_proof_num => 'ml923802378057',
+    p_id_proof_num => 'ml923802308058',
     p_highest_degree => 'B.Tech',
     p_university => 'JntU',
     p_cgpa => 8.9,
@@ -94,15 +94,15 @@ BEGIN
   );
 END;
 /
-
+select * from candidates;
 --ALTER TABLE candidates DROP CONSTRAINT SYS_C008620;
 SET SERVEROUTPUT ON;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
-        p_candidate_id => 59,
-        p_interview_status=>'Selected'
+        p_candidate_id =>2,
+        p_interview_status=>'rejected',
+        p_rejection_reason=>'rejected'
 
-        
     );
 END;
 /
@@ -111,20 +111,20 @@ select * from candidates;
 
 EXEC source_requirement.list_candidates;
 set serveroutput on;
-EXEC source_requirement.list_candidates(p_interview_status=>'selected',P_city=>'hyderabad');
+EXEC source_requirement.list_candidates(p_gender=>'f');
 --name,experience,all mandatory fields(take all parameters)
 EXEC source_requirement.list_candidates(p_country => 'India', p_skill => 'Java');
 --invlude name,pre_company,status,
-EXEC source_requirement.list_candidates(p_id_proof_type => 'aadhar');
+EXEC source_requirement.list_candidates(p_cgpa=>9.1);
 SET SERVEROUTPUT ON SIZE UNLIMITED;
 
 ---inactive the status when selected
-EXEC source_requirement.get_candidate_details(p_candidate_id=>1,p_detail_type=>'academic');
+EXEC source_requirement.get_candidate_details(p_candidate_id=>1,p_detail_type=>'acadEemic');
 --do case insensitive,valid msg for candidate
 --valid masg,parameter valid
 --check section first then do candiadteid
 
-EXEC source_requirement.promote_candidate_to_employee(129,4,700000);
+EXEC source_requirement.promote_candidate_to_employee(128,4,700000);
 --it required field(salary)
 --once candidate id exists in employee don't add again
 set serveroutput on;
@@ -138,7 +138,7 @@ select * from employee;
 select * from department;
 
 
-update candidates set status='Inactive' where interview_status LIKE '%Selected%';
+update candidates set university=upper(university);
 
 set serveroutput on;
 
@@ -146,7 +146,7 @@ set serveroutput on;
 
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
-        p_candidate_id => 1,
+        p_candidate_id => 2,
         p_years_of_experience=>5,
         p_dob=>'30-July-1998'
         );
@@ -158,10 +158,11 @@ BEGIN
         );
 END;
 
+select * from candidates;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
         p_candidate_id => 41,
-        p_id_proof_num=>456578791126
+        p_id_proof_num=>456578791167
         );
 END;
 
@@ -238,7 +239,7 @@ END;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
         p_candidate_id => 28,
-        p_id_proof_num=>'UP1920031224567'
+        p_email=>'priyanka@gmail.com'
         );
 END;
 

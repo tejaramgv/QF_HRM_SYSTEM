@@ -128,6 +128,7 @@ DECLARE
     v_job_title master_data.masterdata_value%TYPE;
 BEGIN
     -- Look up the exact job title from master_data (case-insensitive match)
+    IF :NEW.role IS  NOT NULL THEN
     SELECT masterdata_value
     INTO v_job_title
     FROM master_data
@@ -135,7 +136,7 @@ BEGIN
       AND UPPER(masterdata_value) = UPPER(:NEW.role);
     -- Standardize inserted value
     :NEW.role := v_job_title;
-
+   END IF;
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
         RAISE_APPLICATION_ERROR(-20014, 'Invalid job title. '||v_job_title||' does not exist in master_data.');

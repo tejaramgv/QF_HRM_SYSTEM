@@ -66,7 +66,19 @@ PROCEDURE list_candidates (
     p_id_proof_type IN VARCHAR2 DEFAULT NULL,
     p_degree IN VARCHAR2 DEFAULT NULL,
     p_status IN VARCHAR2 DEFAULT NULL,
-    p_role IN VARCHAR2 DEFAULT NULL
+    p_role IN VARCHAR2 DEFAULT NULL,
+    p_university        IN VARCHAR2 DEFAULT NULL,
+    p_first_name        IN VARCHAR2 DEFAULT NULL,
+    p_last_name         IN VARCHAR2 DEFAULT NULL,    
+    p_exp               IN NUMBER DEFAULT NULL,
+    p_last_employer     IN VARCHAR2 DEFAULT NULL,
+    p_last_salary       IN NUMBER DEFAULT NULL,
+    p_expected_salary    IN NUMBER DEFAULT NULL,
+    p_cgpa              IN NUMBER DEFAULT NULL,
+    p_dob    IN DATE DEFAULT NULL,
+    p_rejection_reason    IN VARCHAR2 DEFAULT NULL,
+    p_gender              IN VARCHAR2 DEFAULT NULL
+    
 );
 
 PROCEDURE get_candidate_details (
@@ -226,12 +238,17 @@ IS
     v_id_proof_type VARCHAR2(30);
     v_formatted_skills VARCHAR2(1000);
     v_item VARCHAR2(100);
-
+    ln_status VARCHAR2(20);
 
     value_too_large EXCEPTION;
     PRAGMA EXCEPTION_INIT(value_too_large, -12899);
 BEGIN
     -- Fetch original row for comparison
+    SELECT status into ln_status FROM CANDIDATES WHERE CANDIDATE_ID=p_candidate_id;
+    IF  ln_status='Inactive' THEN
+    DBMS_OUTPUT.PUT_LINE('Cannot update the candidate details.Candidate Status is inactive');
+    RETURN;
+    END IF;
     SELECT * INTO old_row FROM candidates WHERE candidate_id = p_candidate_id;
       IF p_id_proof_type IS NOT NULL THEN
         IF UPPER(p_id_proof_type) IN ('DL', 'PAN') THEN
@@ -455,30 +472,53 @@ PROCEDURE list_candidates (
     p_id_proof_type     IN VARCHAR2 DEFAULT NULL,
     p_degree            IN VARCHAR2 DEFAULT NULL,
     p_status            IN VARCHAR2 DEFAULT NULL,
-    p_role              IN VARCHAR2 DEFAULT NULL
+    p_role              IN VARCHAR2 DEFAULT NULL,
+    p_university        IN VARCHAR2 DEFAULT NULL,
+    p_first_name        IN VARCHAR2 DEFAULT NULL,
+    p_last_name         IN VARCHAR2 DEFAULT NULL,
+    p_exp               IN NUMBER DEFAULT NULL,
+    p_last_employer     IN VARCHAR2 DEFAULT NULL,
+    p_last_salary       IN NUMBER DEFAULT NULL,
+    p_expected_salary    IN NUMBER DEFAULT NULL,
+    p_cgpa              IN NUMBER DEFAULT NULL,
+    p_dob    IN DATE DEFAULT NULL,
+    p_rejection_reason    IN VARCHAR2 DEFAULT NULL,
+    p_gender           IN VARCHAR2 DEFAULT NULL
+    
 )
 IS
     CURSOR c_cand IS
         SELECT *
         FROM candidates
         WHERE
-            (p_country IS NULL OR LOWER(country) = LOWER(p_country)) AND
-            (p_city IS NULL OR LOWER(city) = LOWER(p_city)) AND
+            (p_country IS NULL OR LOWER(country) LIKE '%'||LOWER(p_country)||'%') AND
+            (p_city IS NULL OR LOWER(city) LIKE '%'||LOWER(p_city)||'%') AND
             (p_skill IS NULL OR LOWER(skills) LIKE '%' || LOWER(p_skill) || '%') AND
             (p_interview_status IS NULL OR LOWER(interview_status) = LOWER(p_interview_status)) AND
             (p_id_proof_type IS NULL OR LOWER(id_proof_type) = LOWER(p_id_proof_type)) AND
-            (p_degree IS NULL OR LOWER(highest_degree) = LOWER(p_degree)) AND
+            (p_degree IS NULL OR LOWER(highest_degree) LIKE '%'||LOWER(p_degree)||'%') AND
             (p_status IS NULL OR LOWER(status) = LOWER(p_status)) AND
-            (p_role IS NULL OR LOWER(role) = LOWER(p_role));
+            (p_role IS NULL OR LOWER(role) LIKE '%'||LOWER(p_role)||'%') AND
+            (p_university IS NULL OR LOWER(university) LIKE '%' || LOWER(p_university)||'%') AND
+            (p_first_name IS NULL OR LOWER(first_name) LIKE   '%'||LOWER(p_first_name)||'%') AND
+            (p_last_name IS NULL OR LOWER(last_name) LIKE  '%'||LOWER(p_role)||'%')AND
+            (p_exp IS NULL OR years_of_experience = p_exp) AND
+            (p_last_employer IS NULL OR LOWER(last_employer) LIKE '%'|| LOWER(p_last_employer)||'%') AND
+            (p_last_salary IS NULL OR last_salary = p_last_salary) AND
+            (p_cgpa IS NULL OR cgpa= p_cgpa) AND            
+            (p_expected_salary IS NULL OR expected_salary = p_expected_salary) AND
+            (p_dob IS NULL OR dob = p_dob) AND
+            (p_rejection_reason IS NULL OR LOWER(rejection_reason) LIKE '%'||LOWER(p_rejection_reason)||'%') AND
+            (p_gender IS NULL OR upper(gender) = upper(p_gender));
 
     r c_cand%ROWTYPE;
     v_count NUMBER := 0;
 
     line_separator CONSTANT VARCHAR2(2000) :=
-'+--------------+--------------+-------------+--------------------------+------------+------------+--------------------+--------------------------+--------------------+----------------------+--------+----------------+----------------+--------------------------+----------------+------------------+--------------------------+--------------------------+----------------------------+----------------+------------------------';
+'+--------------+--------------+-------------+--------------------------+------------+------------+--------------------+--------------------------+--------------------+----------------------+--------+----------------+----------------+--------------------------+----------------+------------------+--------------------------+--------------------------+----------------------------+----------------------------+----------------+------------------------+-----------------------';
 
     header CONSTANT VARCHAR2(2000) :=
-'| Candidate ID | First Name   | Last Name   | Email                    | Phone      | DOB        | ID Proof Type      | ID Proof Number          | Highest Degree     | University           | CGPA   | City           | Country        | Last Employer            | Last Salary    | Expected Salary  | Years of Experience      | Skills                   | Interview Status           | Status         | role                   |';
+'| Candidate ID | First Name   | Last Name   | Email                    | Phone      | DOB        | ID Proof Type      | ID Proof Number          | Highest Degree     | University           | CGPA   | City           | Country        | Last Employer            | Last Salary    | Expected Salary  | Years of Experience      | Skills                   | Interview Status           | Rejection Reason           | Status         | role                   | role                  |';
 
 BEGIN
     OPEN c_cand;
@@ -514,9 +554,12 @@ BEGIN
             LPAD(NVL(TO_CHAR(r.expected_salary), 'N/A'), 16) || ' | ' ||
             LPAD(NVL(TO_CHAR(r.years_of_experience), '0'), 24) || ' | ' ||
             RPAD(SUBSTR(r.skills, 1, 26), 24) || ' | ' ||
-            RPAD(NVL(r.interview_status, 'N/A'), 27) || ' | ' ||
-            RPAD(NVL(r.status, 'N/A'), 13) || '|'||
-            RPAD(NVL(r.role, 'N/A'), 24) || ' | '
+            RPAD(NVL(r.interview_status, 'N/A'), 26) || ' | ' ||
+            RPAD(NVL(r.rejection_reason, '-'), 26) || ' | ' ||            
+            RPAD(NVL(r.status, 'N/A'), 15) || '|'||
+            RPAD(NVL(r.role, 'N/A'), 23) || ' | ' ||
+            RPAD(NVL(r.gender, 'N/A'), 23) || ' | '
+
 
         );
     END LOOP;
@@ -769,8 +812,21 @@ PROCEDURE promote_candidate_to_employee (
     v_manager_id   employee.employee_id%TYPE;
     v_band_found   BOOLEAN := FALSE;
     v_status       candidates.interview_status%TYPE;
+    ln_exists      NUMBER;  
 BEGIN
     -- Step 1: Fetch candidate details
+    BEGIN
+    SELECT 1 INTO ln_exists
+    FROM employee
+    WHERE candidate_id = p_candidate_id;
+    -- If found, candidate already promoted
+    DBMS_OUTPUT.PUT_LINE('Candidate is already an employee.');
+    RETURN;
+    EXCEPTION
+            WHEN no_data_found THEN
+            NULL;
+   END;
+    
     SELECT skills, years_of_experience,
            COALESCE(p_salary, expected_salary), role, interview_status
     INTO  v_skill, v_exp, v_salary,  v_role, v_status
@@ -782,9 +838,11 @@ BEGIN
     -- Step 1b: Validate interview status
     IF v_status != 'Selected' THEN
         IF v_status = 'In Progress' THEN
-            RAISE_APPLICATION_ERROR(-20101, 'Cannot promote: Candidate interview is still in progress.');
+            DBMS_OUTPUT.PUT_LINE('Cannot promote: Candidate interview is still in progress.');
+            RETURN;
         ELSE
-            RAISE_APPLICATION_ERROR(-20102, 'Cannot promote: Candidate interview was not successful.');
+            DBMS_OUTPUT.PUT_LINE('Cannot promote: Candidate interview was not successful.');
+            RETURN;
         END IF;
     END IF;
 
@@ -821,7 +879,8 @@ BEGIN
             v_band_found := TRUE;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                RAISE_APPLICATION_ERROR(-20002, 'No suitable salary band found for the candidate''s role, experience, and salary.');
+                DBMS_OUTPUT.PUT_LINE('No suitable salary band found for the candidate''s role, experience, and salary.');
+            RETURN;
         END;
     END IF;
 
@@ -862,11 +921,11 @@ BEGIN
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Candidate not found. Please check the Candidate ID.');
+        DBMS_OUTPUT.PUT_LINE('Candidate not found. Please check the Candidate ID.');        
     WHEN DUP_VAL_ON_INDEX THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Candidate already promoted to employee.');
+        DBMS_OUTPUT.PUT_LINE('Candidate already promoted to employee.');        
     WHEN OTHERS THEN
-        RAISE_APPLICATION_ERROR(-20099, 'Unexpected error occurred: ' || SQLERRM);
+            DBMS_OUTPUT.PUT_LINE('Unexpected error occurred: ' || SQLERRM);        
 END;
 END;
 /
@@ -989,11 +1048,11 @@ BEGIN
             lv_error_msgs := lv_error_msgs || '- ID proof number is required.' || CHR(10);
         ELSIF lv2_type IS NOT NULL THEN
             IF UPPER(lv2_type) = 'AADHAR' AND NOT REGEXP_LIKE(:NEW.id_proof_num, '^[2-9][0-9]{11}$') THEN
-                lv_error_msgs := lv_error_msgs || '- Invalid Aadhar number. Must be 12 digits starting from 2–9.' || CHR(10);
+                lv_error_msgs := lv_error_msgs || '- Invalid Aadhar number. Must be 12 digits starting from 2ï¿½9.' || CHR(10);
             ELSIF UPPER(lv2_type) = 'PASSPORT' AND NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Za-z][0-9]{7}$') THEN
                 lv_error_msgs := lv_error_msgs || '- Invalid Passport number. Format: A1234567.' || CHR(10);
             ELSIF UPPER(lv2_type) = 'DL' AND NOT REGEXP_LIKE(:NEW.id_proof_num, '^[A-Za-z0-9]{13,15}$') THEN
-                lv_error_msgs := lv_error_msgs || '- Invalid DL number. Must be 13–15 alphanumeric characters.' || CHR(10);
+                lv_error_msgs := lv_error_msgs || '- Invalid DL number. Must be 13ï¿½15 alphanumeric characters.' || CHR(10);
             END IF;
         END IF;
     END IF;
@@ -1102,8 +1161,7 @@ BEGIN
     END IF;
 
     IF lv_error_msgs IS NOT NULL THEN
-            RAISE_APPLICATION_ERROR(
-                -20001,
+            DBMS_OUTPUT.PUT_LINE(
                 'Your input could not be saved due to the following issues:' || CHR(10) || lv_error_msgs
             );
     END IF;
@@ -1500,7 +1558,7 @@ BEGIN
         END IF;
     END LOOP;
     IF lv_error_msgs IS NOT NULL THEN
-        RAISE_APPLICATION_ERROR(-20050, 'Please fix the following issues:' || CHR(10) || lv_error_msgs);
+        DBMS_OUTPUT.PUT_LINE('Please fix the following issues:' || CHR(10) || lv_error_msgs);
     END IF;
 
 END AFTER STATEMENT;
