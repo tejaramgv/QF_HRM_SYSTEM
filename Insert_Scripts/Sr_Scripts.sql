@@ -52,6 +52,7 @@ END;
 ALTER TABLE Candidates DROP CONSTRAINT UNIQ_ID_PROOF;
 select * from candidates;
 select * from employee;
+DELETE FROM Candidates WHERE candidate_id=171;
 set serveroutput on;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
@@ -111,7 +112,7 @@ select * from candidates;
 
 EXEC source_requirement.list_candidates;
 set serveroutput on;
-EXEC source_requirement.list_candidates(p_gender=>'f');
+EXEC source_requirement.list_candidates(p_gender=>'f',p_interview_status=>'rejected');
 --name,experience,all mandatory fields(take all parameters)
 EXEC source_requirement.list_candidates(p_country => 'India', p_skill => 'Java');
 --invlude name,pre_company,status,
@@ -119,15 +120,16 @@ EXEC source_requirement.list_candidates(p_cgpa=>9.1);
 SET SERVEROUTPUT ON SIZE UNLIMITED;
 
 ---inactive the status when selected
-EXEC source_requirement.get_candidate_details(p_candidate_id=>1,p_detail_type=>'acadEemic');
+EXEC source_requirement.get_candidate_details(p_candidate_id=>1,p_detail_type=>'acadEmic');
 --do case insensitive,valid msg for candidate
 --valid masg,parameter valid
 --check section first then do candiadteid
 
-EXEC source_requirement.promote_candidate_to_employee(128,4,700000);
+EXEC source_requirement.promote_candidate_to_employee(54,4,700000);
 --it required field(salary)
 --once candidate id exists in employee don't add again
 set serveroutput on;
+--delete from employee where employee_id>1134;
 EXEC pkg_emp_ops.add_department(p_department_name=>'pRocurement',p_city_id=>22);
 
 EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1077);
@@ -379,5 +381,5 @@ select * from candidates;
 select * from employee;
 
 --DELETE FROM Employee WHERE candidate_id=1;
-drop trigger trg_validate_candidate;
-drop trigger trg_validate_candidates;
+--drop trigger trg_validate_candidate;
+--drop trigger trg_validate_candidates;

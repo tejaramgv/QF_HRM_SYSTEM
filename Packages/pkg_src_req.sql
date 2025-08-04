@@ -494,7 +494,11 @@ IS
             (p_country IS NULL OR LOWER(country) LIKE '%'||LOWER(p_country)||'%') AND
             (p_city IS NULL OR LOWER(city) LIKE '%'||LOWER(p_city)||'%') AND
             (p_skill IS NULL OR LOWER(skills) LIKE '%' || LOWER(p_skill) || '%') AND
-            (p_interview_status IS NULL OR LOWER(interview_status) = LOWER(p_interview_status)) AND
+            (
+                (p_interview_status IS NULL AND LOWER(interview_status) != 'rejected') OR
+                (p_interview_status IS NOT NULL AND LOWER(interview_status) = LOWER(p_interview_status))
+            )
+            AND
             (p_id_proof_type IS NULL OR LOWER(id_proof_type) = LOWER(p_id_proof_type)) AND
             (p_degree IS NULL OR LOWER(highest_degree) LIKE '%'||LOWER(p_degree)||'%') AND
             (p_status IS NULL OR LOWER(status) = LOWER(p_status)) AND
@@ -518,7 +522,7 @@ IS
 '+--------------+--------------+-------------+--------------------------+------------+------------+--------------------+--------------------------+--------------------+----------------------+--------+----------------+----------------+--------------------------+----------------+------------------+--------------------------+--------------------------+----------------------------+----------------------------+----------------+------------------------+-----------------------';
 
     header CONSTANT VARCHAR2(2000) :=
-'| Candidate ID | First Name   | Last Name   | Email                    | Phone      | DOB        | ID Proof Type      | ID Proof Number          | Highest Degree     | University           | CGPA   | City           | Country        | Last Employer            | Last Salary    | Expected Salary  | Years of Experience      | Skills                   | Interview Status           | Rejection Reason           | Status         | role                   | role                  |';
+'| Candidate ID | First Name   | Last Name   | Email                    | Phone      | DOB        | ID Proof Type      | ID Proof Number          | Highest Degree     | University           | CGPA   | City           | Country        | Last Employer            | Last Salary    | Expected Salary  | Years of Experience      | Skills                   | Interview Status           | Rejection Reason           | Status         | role                   | gender                |';
 
 BEGIN
     OPEN c_cand;
@@ -1161,9 +1165,9 @@ BEGIN
     END IF;
 
     IF lv_error_msgs IS NOT NULL THEN
-            DBMS_OUTPUT.PUT_LINE(
-                'Your input could not be saved due to the following issues:' || CHR(10) || lv_error_msgs
-            );
+            
+             RAISE_APPLICATION_ERROR(-20001,'Your input could not be saved due to the following issues:' || CHR(10) || lv_error_msgs);
+          
     END IF;
 
 END;
@@ -1558,7 +1562,7 @@ BEGIN
         END IF;
     END LOOP;
     IF lv_error_msgs IS NOT NULL THEN
-        DBMS_OUTPUT.PUT_LINE('Please fix the following issues:' || CHR(10) || lv_error_msgs);
+            RAISE_APPLICATION_ERROR(-20002,'Please fix the following issues:' || CHR(10) || lv_error_msgs);
     END IF;
 
 END AFTER STATEMENT;
