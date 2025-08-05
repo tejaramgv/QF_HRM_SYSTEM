@@ -25,11 +25,18 @@ CREATE OR REPLACE PACKAGE pkg_emp_ops AS
 ) ;
 
 PROCEDURE update_employee (
-    p_employee_id   IN NUMBER,
-    p_salary        IN NUMBER DEFAULT NULL,
-    p_role          IN VARCHAR2 DEFAULT NULL,
-    p_department_id IN NUMBER DEFAULT NULL
-);
+    p_employee_id     IN NUMBER,
+    p_salary          IN NUMBER DEFAULT NULL,
+    p_role            IN VARCHAR2 DEFAULT NULL,
+    p_department_id   IN NUMBER DEFAULT NULL,
+    p_first_name      IN VARCHAR2 DEFAULT NULL,
+    p_last_name       IN VARCHAR2 DEFAULT NULL,
+    p_email           IN VARCHAR2 DEFAULT NULL,
+    p_phone           IN NUMBER DEFAULT NULL,
+    p_id_proof_type   IN VARCHAR2 DEFAULT NULL,
+    p_id_proof_number IN VARCHAR2 DEFAULT NULL,
+    p_dob             IN DATE DEFAULT NULL
+) ;
 
     PROCEDURE add_department (
     p_department_name IN VARCHAR2,
@@ -72,7 +79,7 @@ PROCEDURE mark_leave (
 
 PROCEDURE mark_absentees;
 END pkg_emp_ops;
-/
+/   
 
 
 CREATE OR REPLACE PACKAGE BODY pkg_emp_ops AS
@@ -244,32 +251,215 @@ EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('error: ' || SQLERRM);
 END;
+--
+--PROCEDURE update_employee (
+--    p_employee_id   IN NUMBER,
+--    p_salary        IN NUMBER DEFAULT NULL,
+--    p_role          IN VARCHAR2 DEFAULT NULL,
+--    p_department_id IN NUMBER DEFAULT NULL
+--) IS
+--    v_salary       employee.salary%TYPE;
+--    v_role         employee.role%TYPE;
+--    v_band_id      employee.band_id%TYPE;
+--    v_old_dept     employee.department_id%TYPE;
+--    v_exp          NUMBER;
+--    v_band_found   BOOLEAN := FALSE;
+--    v_is_manager   NUMBER := 0;
+--BEGIN
+--    -- Fetch current role and salary if not provided
+--    SELECT 
+--        NVL(p_salary, salary),
+--        NVL(p_role, role),
+--        department_id
+--    INTO 
+--        v_salary, v_role, v_old_dept
+--    FROM employee
+--    WHERE employee_id = p_employee_id;
+--
+--    -- Get experience from candidate + tenure
+--    SELECT ROUND(
+--        c.years_of_experience + MONTHS_BETWEEN(SYSDATE, e.date_of_joining) / 12,
+--        1
+--    )
+--    INTO v_exp
+--    FROM employee e
+--    JOIN candidates c ON e.candidate_id = c.candidate_id
+--    WHERE e.employee_id = p_employee_id;
+--
+--    -- Get matching band
+--    BEGIN
+--        SELECT band_id
+--        INTO v_band_id
+--        FROM baseline_salary
+--        WHERE job_title = v_role
+--          AND v_salary BETWEEN min_salary AND max_salary
+--          AND v_exp BETWEEN min_exp AND max_exp
+--        ORDER BY min_exp DESC
+--        FETCH FIRST 1 ROWS ONLY;
+--
+--        v_band_found := TRUE;
+--    EXCEPTION
+--        WHEN NO_DATA_FOUND THEN
+--            NULL; -- Try fallback
+--    END;
+--
+--    -- Fallback band assignment if experience > defined
+--    IF NOT v_band_found THEN
+--        BEGIN
+--            SELECT band_id
+--            INTO v_band_id
+--            FROM baseline_salary
+--            WHERE upper(job_title) = upper(v_role)
+--              AND v_salary BETWEEN min_salary AND max_salary
+--              AND max_exp = (
+--                SELECT MAX(max_exp)
+--                FROM baseline_salary
+--                WHERE upper(job_title) = upper(v_role)
+--              );
+--
+--            v_band_found := TRUE;
+--        EXCEPTION
+--            WHEN NO_DATA_FOUND THEN
+--                RAISE_APPLICATION_ERROR(-20002, '�?� No suitable band found for given role, salary, and experience.');
+--        END;
+--    END IF;
+--
+--    -- Update salary
+--    IF p_salary IS NOT NULL THEN
+--        UPDATE employee
+--        SET salary = p_salary
+--        WHERE employee_id = p_employee_id;
+--        DBMS_OUTPUT.PUT_LINE('✅ Salary updated to ' || p_salary);
+--    END IF;
+--
+--    -- Update role
+--    IF p_role IS NOT NULL THEN
+--        UPDATE employee
+--        SET role = p_role
+--        WHERE employee_id = p_employee_id;
+--        DBMS_OUTPUT.PUT_LINE('✅ Role updated to ' || p_role);
+--    END IF;
+--
+--    -- Update band
+--    IF p_role IS NOT NULL OR p_salary IS NOT NULL THEN
+--    UPDATE employee
+--    SET band_id = v_band_id
+--    WHERE employee_id = p_employee_id;
+--    DBMS_OUTPUT.PUT_LINE('✅ Band ID set to ' || v_band_id);
+--    END IF;
+--
+--    -- Update department and manager
+--    IF p_department_id IS NOT NULL THEN
+--        UPDATE employee
+--        SET department_id = p_department_id
+--        WHERE employee_id = p_employee_id;
+--        DBMS_OUTPUT.PUT_LINE('✅ Department updated to ' || p_department_id);
+--
+--        -- Get department manager
+--        DECLARE
+--            v_dept_mgr_id department.manager_id%TYPE;
+--        BEGIN
+--            SELECT manager_id INTO v_dept_mgr_id
+--            FROM department
+--            WHERE department_id = p_department_id;
+--
+--            IF v_dept_mgr_id IS NOT NULL AND v_dept_mgr_id != p_employee_id THEN
+--                UPDATE employee
+--                SET manager_id = v_dept_mgr_id
+--                WHERE employee_id = p_employee_id;
+--                DBMS_OUTPUT.PUT_LINE('✅ Manager updated to ' || v_dept_mgr_id);
+--            ELSE
+--                UPDATE employee
+--                SET manager_id = NULL
+--                WHERE employee_id = p_employee_id;
+--                DBMS_OUTPUT.PUT_LINE('No valid manager assigned.');
+--            END IF;
+--        END;
+--
+--        -- If employee is a manager of previous dept, remove them
+--        UPDATE department
+--        SET manager_id = NULL
+--        WHERE manager_id = p_employee_id AND department_id = v_old_dept;
+--
+--        -- Remove manager_id from all employees who reported to this manager
+--        UPDATE employee
+--        SET manager_id = NULL
+--        WHERE manager_id = p_employee_id AND department_id = v_old_dept;
+--    END IF;
+--
+--    -- Final check: if this employee is a manager of any department,
+--    -- ensure they do not have a manager themselves
+--    SELECT COUNT(*) INTO v_is_manager
+--    FROM department
+--    WHERE manager_id = p_employee_id;
+--
+--    IF v_is_manager > 0 THEN
+--        UPDATE employee
+--        SET manager_id = NULL
+--        WHERE employee_id = p_employee_id;
+--        DBMS_OUTPUT.PUT_LINE('Removed self manager assignment since employee is a department manager.');
+--    END IF;
+--
+--EXCEPTION
+--    WHEN NO_DATA_FOUND THEN
+--        DBMS_OUTPUT.PUT_LINE('�?� No such employee exists.');
+--    WHEN OTHERS THEN
+--        DBMS_OUTPUT.PUT_LINE('�?� error: ' || SQLERRM);
+--END;
 
 PROCEDURE update_employee (
-    p_employee_id   IN NUMBER,
-    p_salary        IN NUMBER DEFAULT NULL,
-    p_role          IN VARCHAR2 DEFAULT NULL,
-    p_department_id IN NUMBER DEFAULT NULL
+    p_employee_id     IN NUMBER,
+    p_salary          IN NUMBER DEFAULT NULL,
+    p_role            IN VARCHAR2 DEFAULT NULL,
+    p_department_id   IN NUMBER DEFAULT NULL,
+    p_first_name      IN VARCHAR2 DEFAULT NULL,
+    p_last_name       IN VARCHAR2 DEFAULT NULL,
+    p_email           IN VARCHAR2 DEFAULT NULL,
+    p_phone           IN NUMBER DEFAULT NULL,
+    p_id_proof_type   IN VARCHAR2 DEFAULT NULL,
+    p_id_proof_number IN VARCHAR2 DEFAULT NULL,
+    p_dob             IN DATE DEFAULT NULL
 ) IS
-    v_salary       employee.salary%TYPE;
-    v_role         employee.role%TYPE;
-    v_band_id      employee.band_id%TYPE;
-    v_old_dept     employee.department_id%TYPE;
-    v_exp          NUMBER;
-    v_band_found   BOOLEAN := FALSE;
-    v_is_manager   NUMBER := 0;
+    v_salary      employee.salary%TYPE;
+    v_role        employee.role%TYPE;
+    v_band_id     employee.band_id%TYPE;
+    v_old_dept    employee.department_id%TYPE;
+    v_exp         NUMBER;
+    v_band_found  BOOLEAN := FALSE;
+    v_is_manager  NUMBER := 0;
+    v_cand_id     NUMBER;
 BEGIN
-    -- Fetch current role and salary if not provided
+    -- Fetch current role, salary, department and candidate_id
     SELECT 
         NVL(p_salary, salary),
         NVL(p_role, role),
-        department_id
+        department_id,
+        candidate_id
     INTO 
-        v_salary, v_role, v_old_dept
+        v_salary, v_role, v_old_dept, v_cand_id
     FROM employee
     WHERE employee_id = p_employee_id;
 
-    -- Get experience from candidate + tenure
+    -- Update candidate personal details
+    IF p_first_name IS NOT NULL OR p_last_name IS NOT NULL OR
+       p_email IS NOT NULL OR p_phone IS NOT NULL OR
+       p_id_proof_type IS NOT NULL OR p_id_proof_number IS NOT NULL OR
+       p_dob IS NOT NULL THEN
+
+        UPDATE candidates
+        SET first_name      = INITCAP(COALESCE(p_first_name, first_name)),
+            last_name       = INITCAP(COALESCE(p_last_name, last_name)),
+            email           = LOWER(COALESCE(p_email, email)),
+            phone           = COALESCE(p_phone, phone),
+            id_proof_type   = COALESCE(p_id_proof_type, id_proof_type),
+            id_proof_num = UPPER(COALESCE(p_id_proof_number, id_proof_num)),
+            dob             = COALESCE(p_dob, dob)
+        WHERE candidate_id = v_cand_id;
+
+        DBMS_OUTPUT.PUT_LINE('✅ Updated candidate personal details for employee_id ' || p_employee_id);
+    END IF;
+
+    -- Calculate total experience
     SELECT ROUND(
         c.years_of_experience + MONTHS_BETWEEN(SYSDATE, e.date_of_joining) / 12,
         1
@@ -279,24 +469,22 @@ BEGIN
     JOIN candidates c ON e.candidate_id = c.candidate_id
     WHERE e.employee_id = p_employee_id;
 
-    -- Get matching band
+    -- Band mapping logic (realistic fallback)
     BEGIN
         SELECT band_id
         INTO v_band_id
         FROM baseline_salary
-        WHERE job_title = v_role
+        WHERE upper(job_title) = upper(v_role)
           AND v_salary BETWEEN min_salary AND max_salary
           AND v_exp BETWEEN min_exp AND max_exp
         ORDER BY min_exp DESC
         FETCH FIRST 1 ROWS ONLY;
-
         v_band_found := TRUE;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            NULL; -- Try fallback
+            NULL;
     END;
 
-    -- Fallback band assignment if experience > defined
     IF NOT v_band_found THEN
         BEGIN
             SELECT band_id
@@ -305,15 +493,14 @@ BEGIN
             WHERE upper(job_title) = upper(v_role)
               AND v_salary BETWEEN min_salary AND max_salary
               AND max_exp = (
-                SELECT MAX(max_exp)
-                FROM baseline_salary
-                WHERE upper(job_title) = upper(v_role)
+                  SELECT MAX(max_exp)
+                  FROM baseline_salary
+                  WHERE upper(job_title) = upper(v_role)
               );
-
             v_band_found := TRUE;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                RAISE_APPLICATION_ERROR(-20002, '�?� No suitable band found for given role, salary, and experience.');
+                RAISE_APPLICATION_ERROR(-20002, '❌ No suitable band found for role, salary, and experience.');
         END;
     END IF;
 
@@ -335,20 +522,19 @@ BEGIN
 
     -- Update band
     IF p_role IS NOT NULL OR p_salary IS NOT NULL THEN
-    UPDATE employee
-    SET band_id = v_band_id
-    WHERE employee_id = p_employee_id;
-    DBMS_OUTPUT.PUT_LINE('✅ Band ID set to ' || v_band_id);
+        UPDATE employee
+        SET band_id = v_band_id
+        WHERE employee_id = p_employee_id;
+        DBMS_OUTPUT.PUT_LINE('✅ Band ID updated to ' || v_band_id);
     END IF;
 
-    -- Update department and manager
+    -- Update department
     IF p_department_id IS NOT NULL THEN
         UPDATE employee
         SET department_id = p_department_id
         WHERE employee_id = p_employee_id;
         DBMS_OUTPUT.PUT_LINE('✅ Department updated to ' || p_department_id);
 
-        -- Get department manager
         DECLARE
             v_dept_mgr_id department.manager_id%TYPE;
         BEGIN
@@ -365,23 +551,21 @@ BEGIN
                 UPDATE employee
                 SET manager_id = NULL
                 WHERE employee_id = p_employee_id;
-                DBMS_OUTPUT.PUT_LINE('No valid manager assigned.');
+                DBMS_OUTPUT.PUT_LINE('ℹ️ No valid manager assigned.');
             END IF;
         END;
 
-        -- If employee is a manager of previous dept, remove them
+        -- If this employee was the previous manager, remove him
         UPDATE department
         SET manager_id = NULL
         WHERE manager_id = p_employee_id AND department_id = v_old_dept;
 
-        -- Remove manager_id from all employees who reported to this manager
         UPDATE employee
         SET manager_id = NULL
         WHERE manager_id = p_employee_id AND department_id = v_old_dept;
     END IF;
 
-    -- Final check: if this employee is a manager of any department,
-    -- ensure they do not have a manager themselves
+    -- Final cleanup: If this employee is a manager, ensure they don’t have a manager
     SELECT COUNT(*) INTO v_is_manager
     FROM department
     WHERE manager_id = p_employee_id;
@@ -390,15 +574,16 @@ BEGIN
         UPDATE employee
         SET manager_id = NULL
         WHERE employee_id = p_employee_id;
-        DBMS_OUTPUT.PUT_LINE('Removed self manager assignment since employee is a department manager.');
+        DBMS_OUTPUT.PUT_LINE('✅ Removed self manager assignment for department manager.');
     END IF;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('�?� No such employee exists.');
+        DBMS_OUTPUT.PUT_LINE('❌ Employee not found.');
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('�?� error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
 END;
+
 
 PROCEDURE add_department (
     p_department_name IN VARCHAR2,

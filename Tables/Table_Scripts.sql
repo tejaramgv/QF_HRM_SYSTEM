@@ -86,6 +86,7 @@ CREATE TABLE employee_leaves (
 );
 
 
+
 -- Employee Attendance Table
 CREATE TABLE employee_attendance (
     attendance_id     NUMBER PRIMARY KEY,

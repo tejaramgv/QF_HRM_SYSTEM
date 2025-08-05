@@ -101,9 +101,7 @@ SET SERVEROUTPUT ON;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
         p_candidate_id =>2,
-        p_interview_status=>'rejected',
-        p_rejection_reason=>'rejected'
-
+        p_interview_status=>'rejected'
     );
 END;
 /
@@ -126,13 +124,12 @@ EXEC source_requirement.get_candidate_details(p_candidate_id=>1,p_detail_type=>'
 --check section first then do candiadteid
 
 EXEC source_requirement.promote_candidate_to_employee(54,4,700000);
---it required field(salary)
---once candidate id exists in employee don't add again
+
 set serveroutput on;
 --delete from employee where employee_id>1134;
 EXEC pkg_emp_ops.add_department(p_department_name=>'pRocurement',p_city_id=>22);
 
-EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1077);
+EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1037);
 
 select * from employee;
 select * from candidates;
@@ -367,7 +364,7 @@ WHERE LOWER(interview_status) = 'rejected'
 EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1035);
 set serveroutput on;
 -- All employees
-EXEC pkg_emp_ops.list_employees(p_country_id=>100);
+EXEC pkg_emp_ops.list_employees(p_country_id=>1);
 set serveroutput on;
 --get emp details
 EXEC pkg_emp_ops.get_employee_details(10009); 
@@ -380,6 +377,4 @@ select * from master_data;
 select * from candidates;
 select * from employee;
 
---DELETE FROM Employee WHERE candidate_id=1;
---drop trigger trg_validate_candidate;
---drop trigger trg_validate_candidates;
+EXEC pkg_emp_ops.update_employee(p_employee_id=>1077,p_role=>'backend developer');
