@@ -799,111 +799,457 @@ EXCEPTION
 END;
 
 -- Promote a selected candidate to employee
+--PROCEDURE promote_candidate_to_employee (
+--    p_candidate_id   IN NUMBER,
+--    p_department_id  IN NUMBER,
+--    p_salary         IN NUMBER DEFAULT NULL,
+--    p_role           IN VARCHAR2 DEFAULT NULL
+--
+--) IS
+--    
+--    v_skill        candidates.skills%TYPE;
+--    v_exp          candidates.years_of_experience%TYPE;
+--    v_salary       NUMBER;
+--    v_band_id      baseline_salary.band_id%TYPE;
+--    v_new_emp_id   employee.employee_id%TYPE;
+--    v_role         candidates.role%TYPE;
+--    v_manager_id   employee.employee_id%TYPE;
+--    v_band_found   BOOLEAN := FALSE;
+--    v_status       candidates.interview_status%TYPE;
+--    ln_exists      NUMBER;  
+--BEGIN
+--    -- Step 1: Fetch candidate details
+--    BEGIN
+--    SELECT 1 INTO ln_exists
+--    FROM employee
+--    WHERE candidate_id = p_candidate_id;
+--    -- If found, candidate already promoted
+--    DBMS_OUTPUT.PUT_LINE('Candidate is already an employee.');
+--    RETURN;
+--    EXCEPTION
+--            WHEN no_data_found THEN
+--            NULL;
+--   END;
+--    
+--    SELECT skills, years_of_experience,
+--           COALESCE(p_salary, expected_salary), role, interview_status
+--    INTO  v_skill, v_exp, v_salary,  v_role, v_status
+--    FROM candidates
+--    WHERE candidate_id = p_candidate_id;
+--    
+--    v_role:=NVL(p_role,v_role);
+--
+--    -- Step 1b: Validate interview status
+--    IF v_status != 'Selected' THEN
+--        IF v_status = 'In Progress' THEN
+--            DBMS_OUTPUT.PUT_LINE('Cannot promote: Candidate interview is still in progress.');
+--            RETURN;
+--        ELSE
+--            DBMS_OUTPUT.PUT_LINE('Cannot promote: Candidate interview was not successful.');
+--            RETURN;
+--        END IF;
+--    END IF;
+--
+--    -- Step 2: Try to find a suitable band based on salary and experience
+--    BEGIN
+--        SELECT band_id
+--        INTO v_band_id
+--        FROM baseline_salary
+--        WHERE job_title = v_role
+--          AND v_salary BETWEEN min_salary AND max_salary
+--          AND v_exp BETWEEN min_exp AND max_exp
+--        ORDER BY min_exp DESC
+--        FETCH FIRST 1 ROWS ONLY;
+--
+--        v_band_found := TRUE;
+--    EXCEPTION
+--        WHEN NO_DATA_FOUND THEN
+--            NULL; -- Try fallback logic
+--    END;
+--
+--    -- Step 2b: Fallback - if experience is beyond defined range
+--    IF NOT v_band_found THEN
+--        BEGIN
+--            SELECT band_id
+--            INTO v_band_id
+--            FROM baseline_salary
+--            WHERE job_title = v_role
+--              AND v_salary BETWEEN min_salary AND max_salary
+--              AND max_exp = (
+--                SELECT MAX(max_exp)
+--                FROM baseline_salary
+--                WHERE job_title = v_role
+--              );
+--            v_band_found := TRUE;
+--        EXCEPTION
+--            WHEN NO_DATA_FOUND THEN
+--                DBMS_OUTPUT.PUT_LINE('No suitable salary band found for the candidate''s role, experience, and salary.');
+--            RETURN;
+--        END;
+--    END IF;
+--
+--    -- Step 3: Fetch department manager, if available
+--    BEGIN
+--        SELECT manager_id
+--        INTO v_manager_id
+--        FROM department
+--        WHERE department_id = p_department_id
+--          AND manager_id IS NOT NULL;
+--    EXCEPTION
+--        WHEN NO_DATA_FOUND THEN
+--            v_manager_id := NULL; -- Proceed without manager
+--    END;
+--
+--    -- Step 4: Generate new employee ID
+--    SELECT employee_seq.NEXTVAL INTO v_new_emp_id FROM dual;
+--
+--    -- Step 5: Insert new employee record
+--    INSERT INTO employee (
+--        employee_id, candidate_id, 
+--        salary, department_id, date_of_joining, band_id,
+--        manager_id, employee_status, leaves_balance, role
+--    ) VALUES (
+--        v_new_emp_id, p_candidate_id,
+--        v_salary, p_department_id, SYSDATE, v_band_id,
+--        v_manager_id, 'Active', (12 - EXTRACT(MONTH FROM sysdate) + 1) * 2,  INITCAP(v_role)
+--    );
+--
+--    -- Output success message
+--    DBMS_OUTPUT.PUT_LINE('Candidate ID ' || p_candidate_id || ' has been successfully promoted to Employee ID ' || v_new_emp_id || '.');
+--    
+--    IF v_manager_id IS NULL THEN
+--        DBMS_OUTPUT.PUT_LINE('Note: No department manager was assigned for department ID ' || p_department_id || '.');
+--    ELSE
+--        DBMS_OUTPUT.PUT_LINE('Assigned Manager ID: ' || v_manager_id);
+--    END IF;
+--
+--EXCEPTION
+--    WHEN NO_DATA_FOUND THEN
+--        DBMS_OUTPUT.PUT_LINE('Candidate not found. Please check the Candidate ID.');        
+--    WHEN DUP_VAL_ON_INDEX THEN
+--        DBMS_OUTPUT.PUT_LINE('Candidate already promoted to employee.');        
+--    WHEN OTHERS THEN
+--            DBMS_OUTPUT.PUT_LINE('Unexpected error occurred: ' || SQLERRM);        
+--END;
+
+--PROCEDURE promote_candidate_to_employee (
+--    p_candidate_id   IN NUMBER,
+--    p_department_id  IN NUMBER,
+--    p_salary         IN NUMBER DEFAULT NULL,
+--    p_role           IN VARCHAR2 DEFAULT NULL
+--) IS
+--    v_skill        candidates.skills%TYPE;
+--    v_exp          candidates.years_of_experience%TYPE;
+--    v_salary       NUMBER;
+--    v_band_id      baseline_salary.band_id%TYPE;
+--    v_new_emp_id   employee.employee_id%TYPE;
+--    v_role         candidates.role%TYPE;
+--    v_manager_id   employee.employee_id%TYPE;
+--    v_band_found   BOOLEAN := FALSE;
+--    v_status       candidates.interview_status%TYPE;
+--    ln_exists      NUMBER;
+--    v_dept_master_id master_data.masterdata_id%TYPE;
+--    v_role_parent   master_data.parent_id%TYPE;
+--BEGIN
+--    -- Step 0: Check if already promoted
+--    BEGIN
+--        SELECT 1 INTO ln_exists
+--        FROM employee
+--        WHERE candidate_id = p_candidate_id;
+--        DBMS_OUTPUT.PUT_LINE('❌ Candidate is already an employee.');
+--        RETURN;
+--    EXCEPTION
+--        WHEN no_data_found THEN NULL;
+--    END;
+--
+--    -- Step 1: Fetch candidate details
+--    SELECT skills, years_of_experience,
+--           COALESCE(p_salary, expected_salary), role, interview_status
+--    INTO  v_skill, v_exp, v_salary,  v_role, v_status
+--    FROM candidates
+--    WHERE candidate_id = p_candidate_id;
+--
+--    v_role := NVL(p_role, v_role);
+--
+--    -- Step 2: Validate interview status
+--    IF v_status != 'Selected' THEN
+--        IF v_status = 'In Progress' THEN
+--            DBMS_OUTPUT.PUT_LINE('❌ Cannot promote: Candidate interview is still in progress.');
+--        ELSE
+--            DBMS_OUTPUT.PUT_LINE('❌ Cannot promote: Candidate interview was not successful.');
+--        END IF;
+--        RETURN;
+--    END IF;
+--
+--   -- Step 3: Validate role-department mapping
+--BEGIN
+--    -- Get the master_data ID of the department
+--    SELECT d_master.masterdata_id INTO v_dept_master_id
+--    FROM department d
+--    JOIN master_data d_master ON UPPER(d_master.masterdata_type) = 'DEPARTMENT'
+--                              AND d_master.masterdata_value = d.department_name
+--    WHERE d.department_id = p_department_id;
+--
+--    -- Get role's parent_id
+--    SELECT parent_id INTO v_role_parent
+--    FROM master_data
+--    WHERE masterdata_type = 'JOB_TITLE'
+--      AND masterdata_value = INITCAP(v_role);
+--
+--    -- Compare
+--    IF v_role_parent IS NULL OR v_role_parent != v_dept_master_id THEN
+--        DECLARE
+--            v_actual_dept_name master_data.masterdata_value%TYPE;
+--        BEGIN
+--            SELECT masterdata_value
+--            INTO v_actual_dept_name
+--            FROM master_data
+--            WHERE masterdata_id = v_role_parent;
+--
+--            DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(v_role) || '" does not belong to the selected department.');
+--            DBMS_OUTPUT.PUT_LINE('🔎 This role is actually associated with department: "' || v_actual_dept_name || '".');
+--        EXCEPTION
+--            WHEN NO_DATA_FOUND THEN
+--                DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(v_role) || '" exists but has no valid department assigned.');
+--        END;
+--        RETURN;
+--    END IF;
+--EXCEPTION
+--    WHEN NO_DATA_FOUND THEN
+--        DBMS_OUTPUT.PUT_LINE('❌ Invalid role "' || INITCAP(v_role) || '" or department ID ' || p_department_id || '.');
+--        RETURN;
+--END;
+--
+--
+--    -- Step 4: Try to find a suitable band based on salary and experience
+--    BEGIN
+--        SELECT band_id
+--        INTO v_band_id
+--        FROM baseline_salary
+--        WHERE upper(job_title)= upper(v_role)
+--          AND v_salary BETWEEN min_salary AND max_salary
+--          AND v_exp BETWEEN min_exp AND max_exp
+--        ORDER BY min_exp DESC
+--        FETCH FIRST 1 ROWS ONLY;
+--
+--        v_band_found := TRUE;
+--    EXCEPTION
+--        WHEN NO_DATA_FOUND THEN
+--            NULL; -- Try fallback logic
+--    END;
+--
+--    -- Step 4b: Fallback - if experience is beyond defined range
+--    IF NOT v_band_found THEN
+--        BEGIN
+--            SELECT band_id
+--            INTO v_band_id
+--            FROM baseline_salary
+--            WHERE upper(job_title) = upper(v_role)
+--              AND v_salary BETWEEN min_salary AND max_salary
+--              AND max_exp = (
+--                SELECT MAX(max_exp)
+--                FROM baseline_salary
+--                WHERE upper(job_title) = upper(v_role)
+--              );
+--            v_band_found := TRUE;
+--        EXCEPTION
+--            WHEN NO_DATA_FOUND THEN
+--                DBMS_OUTPUT.PUT_LINE('❌ No suitable salary band found for role "' || v_role || '", experience, and salary.');
+--                RETURN;
+--        END;
+--    END IF;
+--
+--    -- Step 5: Fetch department manager, if available
+--    BEGIN
+--        SELECT manager_id INTO v_manager_id
+--        FROM department
+--        WHERE department_id = p_department_id AND manager_id IS NOT NULL;
+--    EXCEPTION
+--        WHEN NO_DATA_FOUND THEN
+--            v_manager_id := NULL;
+--    END;
+--
+--    -- Step 6: Generate new employee ID
+--    SELECT employee_seq.NEXTVAL INTO v_new_emp_id FROM dual;
+--
+--    -- Step 7: Insert employee
+--    INSERT INTO employee (
+--        employee_id, candidate_id, 
+--        salary, department_id, date_of_joining, band_id,
+--        manager_id, employee_status, leaves_balance, role
+--    ) VALUES (
+--        v_new_emp_id, p_candidate_id,
+--        v_salary, p_department_id, SYSDATE, v_band_id,
+--        v_manager_id, 'Active', (12 - EXTRACT(MONTH FROM SYSDATE) + 1) * 2, INITCAP(v_role)
+--    );
+--
+--    -- Step 8: Output success
+--    DBMS_OUTPUT.PUT_LINE('✅ Candidate ID ' || p_candidate_id || ' has been successfully promoted to Employee ID ' || v_new_emp_id);
+--    DBMS_OUTPUT.PUT_LINE('📌 Assigned Role: ' || INITCAP(v_role));
+--    DBMS_OUTPUT.PUT_LINE('📌 Assigned Department ID: ' || p_department_id);
+--    DBMS_OUTPUT.PUT_LINE('📌 Band ID: ' || v_band_id);
+--
+--    IF v_manager_id IS NULL THEN
+--        DBMS_OUTPUT.PUT_LINE('ℹ️ Note: No department manager was assigned for department ID ' || p_department_id);
+--    ELSE
+--        DBMS_OUTPUT.PUT_LINE('📌 Assigned Manager ID: ' || v_manager_id);
+--    END IF;
+--
+--EXCEPTION
+--    WHEN NO_DATA_FOUND THEN
+--        DBMS_OUTPUT.PUT_LINE('❌ Candidate not found.');
+--    WHEN DUP_VAL_ON_INDEX THEN
+--        DBMS_OUTPUT.PUT_LINE('❌ Candidate already exists as employee.');
+--    WHEN OTHERS THEN
+--        DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
+--END;
+
 PROCEDURE promote_candidate_to_employee (
     p_candidate_id   IN NUMBER,
     p_department_id  IN NUMBER,
     p_salary         IN NUMBER DEFAULT NULL,
     p_role           IN VARCHAR2 DEFAULT NULL
-
 ) IS
-    
-    v_skill        candidates.skills%TYPE;
-    v_exp          candidates.years_of_experience%TYPE;
-    v_salary       NUMBER;
-    v_band_id      baseline_salary.band_id%TYPE;
-    v_new_emp_id   employee.employee_id%TYPE;
-    v_role         candidates.role%TYPE;
-    v_manager_id   employee.employee_id%TYPE;
-    v_band_found   BOOLEAN := FALSE;
-    v_status       candidates.interview_status%TYPE;
-    ln_exists      NUMBER;  
+    v_skill         candidates.skills%TYPE;
+    v_exp           candidates.years_of_experience%TYPE;
+    v_salary        NUMBER;
+    v_band_id       baseline_salary.band_id%TYPE;
+    v_new_emp_id    employee.employee_id%TYPE;
+    v_role          candidates.role%TYPE;
+    v_manager_id    employee.employee_id%TYPE;
+    v_band_found    BOOLEAN := FALSE;
+    v_status        candidates.interview_status%TYPE;
+    ln_exists       NUMBER;
+    v_dept_master_id master_data.masterdata_id%TYPE;
+    v_role_parent    master_data.parent_id%TYPE;
+
+    -- For messages
+    v_candidate_name VARCHAR2(200);
+    v_dept_name      VARCHAR2(100);
+    v_role_name      VARCHAR2(100);
+    v_manager_name   VARCHAR2(200);
+
 BEGIN
-    -- Step 1: Fetch candidate details
+    -- Check if already promoted
     BEGIN
-    SELECT 1 INTO ln_exists
-    FROM employee
-    WHERE candidate_id = p_candidate_id;
-    -- If found, candidate already promoted
-    DBMS_OUTPUT.PUT_LINE('Candidate is already an employee.');
-    RETURN;
+        SELECT 1 INTO ln_exists
+        FROM employee
+        WHERE candidate_id = p_candidate_id;
+        DBMS_OUTPUT.PUT_LINE('❌ Candidate is already an employee.');
+        RETURN;
     EXCEPTION
-            WHEN no_data_found THEN
-            NULL;
-   END;
-    
+        WHEN no_data_found THEN NULL;
+    END;
+
+    -- Fetch candidate details
     SELECT skills, years_of_experience,
-           COALESCE(p_salary, expected_salary), role, interview_status
-    INTO  v_skill, v_exp, v_salary,  v_role, v_status
+           COALESCE(p_salary, expected_salary), role, interview_status,
+           INITCAP(first_name || ' ' || last_name)
+    INTO  v_skill, v_exp, v_salary, v_role, v_status, v_candidate_name
     FROM candidates
     WHERE candidate_id = p_candidate_id;
-    
-    v_role:=NVL(p_role,v_role);
 
-    -- Step 1b: Validate interview status
+    v_role := NVL(p_role, v_role);
+
+    -- Validate interview status
     IF v_status != 'Selected' THEN
-        IF v_status = 'In Progress' THEN
-            DBMS_OUTPUT.PUT_LINE('Cannot promote: Candidate interview is still in progress.');
-            RETURN;
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('Cannot promote: Candidate interview was not successful.');
-            RETURN;
-        END IF;
+        DBMS_OUTPUT.PUT_LINE('❌ ' || v_candidate_name || ' cannot be promoted. Interview status: ' || v_status || '.');
+        RETURN;
     END IF;
 
-    -- Step 2: Try to find a suitable band based on salary and experience
+    -- Get department name
+    SELECT department_name INTO v_dept_name
+    FROM department
+    WHERE department_id = p_department_id;
+
+    -- Validate role-department mapping
     BEGIN
-        SELECT band_id
-        INTO v_band_id
+        SELECT d_master.masterdata_id INTO v_dept_master_id
+        FROM department d
+        JOIN master_data d_master ON UPPER(d_master.masterdata_type) = 'DEPARTMENT'
+                                  AND d_master.masterdata_value = d.department_name
+        WHERE d.department_id = p_department_id;
+
+        SELECT parent_id INTO v_role_parent
+        FROM master_data
+        WHERE masterdata_type = 'JOB_TITLE'
+          AND masterdata_value = INITCAP(v_role);
+
+        IF v_role_parent IS NULL OR v_role_parent != v_dept_master_id THEN
+            DECLARE
+                v_actual_dept_name master_data.masterdata_value%TYPE;
+            BEGIN
+                SELECT masterdata_value
+                INTO v_actual_dept_name
+                FROM master_data
+                WHERE masterdata_id = v_role_parent;
+
+                DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(v_role) || '" does not belong to department "' || v_dept_name || '".');
+                DBMS_OUTPUT.PUT_LINE('🔎 This role is actually under department: "' || v_actual_dept_name || '".');
+            EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                    DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(v_role) || '" exists but is not mapped to any department.');
+            END;
+            RETURN;
+        END IF;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('❌ Invalid role "' || INITCAP(v_role) || '" or department "' || v_dept_name || '".');
+            RETURN;
+    END;
+
+    -- Find suitable band
+    BEGIN
+        SELECT band_id INTO v_band_id
         FROM baseline_salary
-        WHERE job_title = v_role
+        WHERE upper(job_title)= upper(v_role)
           AND v_salary BETWEEN min_salary AND max_salary
           AND v_exp BETWEEN min_exp AND max_exp
         ORDER BY min_exp DESC
         FETCH FIRST 1 ROWS ONLY;
-
         v_band_found := TRUE;
     EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-            NULL; -- Try fallback logic
+        WHEN NO_DATA_FOUND THEN NULL;
     END;
 
-    -- Step 2b: Fallback - if experience is beyond defined range
+    -- Fallback band logic
     IF NOT v_band_found THEN
         BEGIN
-            SELECT band_id
-            INTO v_band_id
+            SELECT band_id INTO v_band_id
             FROM baseline_salary
-            WHERE job_title = v_role
+            WHERE upper(job_title) = upper(v_role)
               AND v_salary BETWEEN min_salary AND max_salary
               AND max_exp = (
                 SELECT MAX(max_exp)
                 FROM baseline_salary
-                WHERE job_title = v_role
+                WHERE upper(job_title) = upper(v_role)
               );
             v_band_found := TRUE;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('No suitable salary band found for the candidate''s role, experience, and salary.');
-            RETURN;
+                DBMS_OUTPUT.PUT_LINE('❌ No suitable salary band found for role "' || INITCAP(v_role) || '".');
+                RETURN;
         END;
     END IF;
 
-    -- Step 3: Fetch department manager, if available
+    -- Fetch department manager, if available
     BEGIN
-        SELECT manager_id
-        INTO v_manager_id
-        FROM department
-        WHERE department_id = p_department_id
-          AND manager_id IS NOT NULL;
+        SELECT e.manager_id, INITCAP(c.first_name || ' ' || c.last_name)
+        INTO v_manager_id, v_manager_name
+        FROM department d
+        JOIN employee e ON d.manager_id = e.employee_id
+        JOIN candidates c ON c.candidate_id = e.candidate_id
+        WHERE d.department_id = p_department_id AND d.manager_id IS NOT NULL;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            v_manager_id := NULL; -- Proceed without manager
+            v_manager_id := NULL;
+            v_manager_name := 'Not Assigned';
     END;
 
-    -- Step 4: Generate new employee ID
+    -- Generate employee ID
     SELECT employee_seq.NEXTVAL INTO v_new_emp_id FROM dual;
 
-    -- Step 5: Insert new employee record
+    -- Insert employee
     INSERT INTO employee (
         employee_id, candidate_id, 
         salary, department_id, date_of_joining, band_id,
@@ -911,26 +1257,41 @@ BEGIN
     ) VALUES (
         v_new_emp_id, p_candidate_id,
         v_salary, p_department_id, SYSDATE, v_band_id,
-        v_manager_id, 'Active', (12 - EXTRACT(MONTH FROM sysdate) + 1) * 2,  INITCAP(v_role)
+        v_manager_id, 'Active', (12 - EXTRACT(MONTH FROM SYSDATE) + 1) * 2, INITCAP(v_role)
     );
 
-    -- Output success message
-    DBMS_OUTPUT.PUT_LINE('Candidate ID ' || p_candidate_id || ' has been successfully promoted to Employee ID ' || v_new_emp_id || '.');
+    -- Output summary
+    DBMS_OUTPUT.PUT_LINE('✅ ' || v_candidate_name || ' has been promoted to Employee ID ' || v_new_emp_id || '.');
+    DBMS_OUTPUT.PUT_LINE('📌 Department: ' || v_dept_name);
+    DBMS_OUTPUT.PUT_LINE('📌 Role: ' || INITCAP(v_role));
+    DBMS_OUTPUT.PUT_LINE('📌 Salary: ₹' || v_salary);
+    DBMS_OUTPUT.PUT_LINE('📌 Reporting Manager: ' || v_manager_name);
+-- Get band name from master_data
+DECLARE
+    v_band_name master_data.masterdata_value%TYPE;
+BEGIN
+    SELECT band
+    INTO v_band_name
+    FROM baseline_salary
+    WHERE band_id = v_band_id;
+
+    DBMS_OUTPUT.PUT_LINE('📌 Assigned Band: ' || v_band_name);
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('📌 Assigned Band ID: ' || v_band_id || ' (name not found)');
+END;
     
-    IF v_manager_id IS NULL THEN
-        DBMS_OUTPUT.PUT_LINE('Note: No department manager was assigned for department ID ' || p_department_id || '.');
-    ELSE
-        DBMS_OUTPUT.PUT_LINE('Assigned Manager ID: ' || v_manager_id);
-    END IF;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('Candidate not found. Please check the Candidate ID.');        
+        DBMS_OUTPUT.PUT_LINE('❌ Candidate not found.');
     WHEN DUP_VAL_ON_INDEX THEN
-        DBMS_OUTPUT.PUT_LINE('Candidate already promoted to employee.');        
+        DBMS_OUTPUT.PUT_LINE('❌ Candidate is already an employee.');
     WHEN OTHERS THEN
-            DBMS_OUTPUT.PUT_LINE('Unexpected error occurred: ' || SQLERRM);        
+        DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
 END;
+
+
 END;
 /
 --DROP SEQUENCE seq_candidate_id;

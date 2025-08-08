@@ -100,8 +100,8 @@ select * from candidates;
 SET SERVEROUTPUT ON;
 BEGIN
     source_requirement.UPDATE_CANDIDATE(
-        p_candidate_id =>2,
-        p_interview_status=>'rejected'
+        p_candidate_id =>150,
+        p_interview_status=>'selected'
     );
 END;
 /
@@ -122,14 +122,16 @@ EXEC source_requirement.get_candidate_details(p_candidate_id=>1,p_detail_type=>'
 --do case insensitive,valid msg for candidate
 --valid masg,parameter valid
 --check section first then do candiadteid
+select * from candidates;
 
-EXEC source_requirement.promote_candidate_to_employee(54,4,700000);
+EXEC source_requirement.promote_candidate_to_employee(150,3,500000);
+delete from employee where candidate_id=150;
 
 set serveroutput on;
 --delete from employee where employee_id>1134;
-EXEC pkg_emp_ops.add_department(p_department_name=>'pRocurement',p_city_id=>22);
+EXEC pkg_emp_ops.add_department(p_department_name=>'enGineering');
 
-EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1037);
+EXEC pkg_emp_ops.update_department(p_department_id=>1,p_city_id=>22,p_manager_id=>1035);
 
 select * from employee;
 select * from candidates;
@@ -367,14 +369,14 @@ set serveroutput on;
 EXEC pkg_emp_ops.list_employees(p_country_id=>1);
 set serveroutput on;
 --get emp details
-EXEC pkg_emp_ops.get_employee_details(10009); 
+EXEC pkg_emp_ops.get_employee_details(1035); 
 
-EXEC pkg_emp_ops.update_employee(p_employee_id=>1037,p_department_id => 1,p_role=>'hr Executive');
-
+EXEC pkg_emp_ops.update_employee(p_employee_id=>1035,p_department_id=>1,p_salary=>970000,p_role=>'hr exeCutive',p_first_name=>'priYa',p_last_name=>'rai',p_city=>'banglore');
 set serveroutput on;
 
 select * from master_data;
 select * from candidates;
 select * from employee;
+select *from department;
 
 EXEC pkg_emp_ops.update_employee(p_employee_id=>1077,p_role=>'backend developer');

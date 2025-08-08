@@ -88,7 +88,57 @@ INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, paren
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (86, 'PERFORMANCE_RATING', '5', NULL);
 
 
+-- Software Engineer -> Engineering
+UPDATE master_data
+SET parent_id = 28
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'Software Engineer';
 
+-- HR Executive -> HR
+UPDATE master_data
+SET parent_id = 26
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'HR Executive';
+
+-- Finance Analyst -> Finance
+UPDATE master_data
+SET parent_id = 27
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'Finance Analyst';
+
+-- DevOps Engineer -> Engineering
+UPDATE master_data
+SET parent_id = 28
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'DevOps Engineer';
+
+-- UI/UX Designer -> Marketing
+UPDATE master_data
+SET parent_id = 30
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'UI/UX Designer';
+
+-- Sales Manager -> Sales
+UPDATE master_data
+SET parent_id = 31
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'Sales Manager';
+
+-- Product Manager -> Research and Development
+UPDATE master_data
+SET parent_id = 34
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'Product Manager';
+
+-- System Administrator -> IT Support
+UPDATE master_data
+SET parent_id = 33
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'System Administrator';
+
+-- QA Engineer -> Engineering
+UPDATE master_data
+SET parent_id = 28
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'QA Engineer';
+
+-- Backend Developer -> Engineering
+UPDATE master_data
+SET parent_id = 28
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'Backend Developer';
+
+select * from master_data;
 
 --TRUNCATE TABLE master_data;
 --insert data into departments
