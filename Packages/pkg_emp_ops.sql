@@ -25,11 +25,20 @@ CREATE OR REPLACE PACKAGE pkg_emp_ops AS
 ) ;
 
 PROCEDURE update_employee (
-    p_employee_id   IN NUMBER,
-    p_salary        IN NUMBER DEFAULT NULL,
-    p_role          IN VARCHAR2 DEFAULT NULL,
-    p_department_id IN NUMBER DEFAULT NULL
-);
+    p_employee_id     IN NUMBER,
+    p_salary          IN NUMBER DEFAULT NULL,
+    p_role            IN VARCHAR2 DEFAULT NULL,
+    p_department_id   IN NUMBER DEFAULT NULL,
+    p_first_name      IN VARCHAR2 DEFAULT NULL,
+    p_last_name       IN VARCHAR2 DEFAULT NULL,
+    p_email           IN VARCHAR2 DEFAULT NULL,
+    p_phone           IN NUMBER DEFAULT NULL,
+    p_id_proof_type   IN VARCHAR2 DEFAULT NULL,
+    p_id_proof_number IN VARCHAR2 DEFAULT NULL,
+    p_dob             IN DATE DEFAULT NULL,
+    p_city            IN VARCHAR2 DEFAULT NULL,
+    p_country           IN VARCHAR2 DEFAULT NULL    
+) ;
 
     PROCEDURE add_department (
     p_department_name IN VARCHAR2,
@@ -85,7 +94,7 @@ PROCEDURE apply_leave (
     p_reason        IN VARCHAR2
 );
 END pkg_emp_ops;
-/
+/   
 
 
 CREATE OR REPLACE PACKAGE BODY pkg_emp_ops AS
@@ -259,57 +268,297 @@ EXCEPTION
 END;
 
 PROCEDURE update_employee (
-    p_employee_id   IN NUMBER,
-    p_salary        IN NUMBER DEFAULT NULL,
-    p_role          IN VARCHAR2 DEFAULT NULL,
-    p_department_id IN NUMBER DEFAULT NULL
+    p_employee_id     IN NUMBER,
+    p_salary          IN NUMBER DEFAULT NULL,
+    p_role            IN VARCHAR2 DEFAULT NULL,
+    p_department_id   IN NUMBER DEFAULT NULL,
+    p_first_name      IN VARCHAR2 DEFAULT NULL,
+    p_last_name       IN VARCHAR2 DEFAULT NULL,
+    p_email           IN VARCHAR2 DEFAULT NULL,
+    p_phone           IN NUMBER DEFAULT NULL,
+    p_id_proof_type   IN VARCHAR2 DEFAULT NULL,
+    p_id_proof_number IN VARCHAR2 DEFAULT NULL,
+    p_dob             IN DATE DEFAULT NULL,
+    p_city            IN VARCHAR2 DEFAULT NULL,
+    p_country           IN VARCHAR2 DEFAULT NULL
+
 ) IS
-    v_salary       employee.salary%TYPE;
-    v_role         employee.role%TYPE;
-    v_band_id      employee.band_id%TYPE;
-    v_old_dept     employee.department_id%TYPE;
-    v_exp          NUMBER;
-    v_band_found   BOOLEAN := FALSE;
-    v_is_manager   NUMBER := 0;
+    v_salary        employee.salary%TYPE;
+    v_role          employee.role%TYPE;
+    v_band_id       employee.band_id%TYPE;
+    v_old_dept      employee.department_id%TYPE;
+    v_exp           NUMBER;
+    v_band_found    BOOLEAN := FALSE;
+    v_is_manager    NUMBER := 0;
+    v_cand_id       NUMBER;
+    v_dept_name     VARCHAR2(100);
+    v_role_dept_id  NUMBER;
+    v_role_name     VARCHAR2(100);
+    v_band_name     VARCHAR2(100);
+    v_dept_master_id NUMBER;
+    v_role_parent    NUMBER;
 BEGIN
-    -- Fetch current role and salary if not provided
+    -- Fetch current salary, role, department, candidate_id
     SELECT 
         NVL(p_salary, salary),
         NVL(p_role, role),
-        department_id
+        department_id,
+        candidate_id
     INTO 
-        v_salary, v_role, v_old_dept
+        v_salary, v_role, v_old_dept, v_cand_id
     FROM employee
     WHERE employee_id = p_employee_id;
 
-    -- Get experience from candidate + tenure
+    v_role := INITCAP(v_role); -- Normalize role
+
+-- Step 3: Validate role-department mapping
+DECLARE
+    v_existing_dept_id        department.department_id%TYPE;
+    v_existing_role           employee.role%TYPE;
+    v_existing_dept_master_id master_data.masterdata_id%TYPE;
+    v_input_dept_master_id    master_data.masterdata_id%TYPE;
+    v_role_parent_id          master_data.parent_id%TYPE;
+    v_wrong_dept_name         master_data.masterdata_value%TYPE;
+BEGIN
+    -- Get employee's current department and role
+    BEGIN
+        SELECT department_id, role
+        INTO v_existing_dept_id, v_existing_role
+        FROM employee
+        WHERE employee_id = p_employee_id;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('❌ Employee with ID ' || p_employee_id || ' not found.');
+            RETURN;
+    END;
+
+    -- CASE 1: Only role is being updated
+    IF p_role IS NOT NULL AND p_department_id IS NULL THEN
+        BEGIN
+            SELECT md.masterdata_id
+            INTO v_existing_dept_master_id
+            FROM department d
+            JOIN master_data md ON md.masterdata_value = d.department_name
+            WHERE d.department_id = v_existing_dept_id;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE('❌ Existing department ID ' || v_existing_dept_id || ' not found in master data.');
+                RETURN;
+        END;
+
+        BEGIN
+            SELECT parent_id
+            INTO v_role_parent_id
+            FROM master_data
+            WHERE masterdata_type = 'JOB_TITLE'
+              AND UPPER(masterdata_value) = UPPER(p_role);
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(p_role) || '" not found in master data.');
+                RETURN;
+        END;
+
+        -- Compare
+        IF v_existing_dept_master_id != v_role_parent_id THEN
+            BEGIN
+                SELECT masterdata_value INTO v_wrong_dept_name
+                FROM master_data
+                WHERE masterdata_id = v_role_parent_id;
+                DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(p_role) || '" does not belong to employee''s current department.');
+                DBMS_OUTPUT.PUT_LINE('🔎 This role belongs to department: "' || v_wrong_dept_name || '".');
+            EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                    DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(p_role) || '" has no associated department in master data.');
+            END;
+            RETURN;
+        END IF;
+    END IF;
+
+    -- CASE 2: Only department is being updated
+    IF p_department_id IS NOT NULL AND p_role IS NULL THEN
+        BEGIN
+            SELECT md.masterdata_id
+            INTO v_input_dept_master_id
+            FROM department d
+            JOIN master_data md ON md.masterdata_value = d.department_name
+            WHERE d.department_id = p_department_id;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE('❌ Provided department ID ' || p_department_id || ' not found in master data.');
+                RETURN;
+        END;
+
+        BEGIN
+            SELECT parent_id
+            INTO v_role_parent_id
+            FROM master_data
+            WHERE masterdata_type = 'JOB_TITLE'
+              AND UPPER(masterdata_value) = UPPER(v_existing_role);
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE('❌ Current role "' || INITCAP(v_existing_role) || '" not found in master data.');
+                RETURN;
+        END;
+
+        -- Compare
+        IF v_input_dept_master_id != v_role_parent_id THEN
+            BEGIN
+                SELECT masterdata_value INTO v_wrong_dept_name
+                FROM master_data
+                WHERE masterdata_id = v_role_parent_id;
+                DBMS_OUTPUT.PUT_LINE('❌ Current role "' || INITCAP(v_existing_role) || '" does not match the new department.');
+                DBMS_OUTPUT.PUT_LINE('🔎 This role belongs to department: "' || v_wrong_dept_name || '".');
+            EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                    DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(v_existing_role) || '" has no associated department in master data.');
+            END;
+            RETURN;
+        END IF;
+    END IF;
+
+    -- CASE 3: Both role and department are being updated
+    IF p_role IS NOT NULL AND p_department_id IS NOT NULL THEN
+        BEGIN
+            SELECT md.masterdata_id
+            INTO v_input_dept_master_id
+            FROM department d
+            JOIN master_data md ON md.masterdata_value = d.department_name
+            WHERE d.department_id = p_department_id;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE('❌ Department ID ' || p_department_id || ' not found in master data.');
+                RETURN;
+        END;
+
+        BEGIN
+            SELECT parent_id
+            INTO v_role_parent_id
+            FROM master_data
+            WHERE masterdata_type = 'JOB_TITLE'
+              AND UPPER(masterdata_value) = UPPER(p_role);
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(p_role) || '" not found in master data.');
+                RETURN;
+        END;
+
+        -- Compare
+        IF v_input_dept_master_id != v_role_parent_id THEN
+            BEGIN
+                SELECT masterdata_value INTO v_wrong_dept_name
+                FROM master_data
+                WHERE masterdata_id = v_role_parent_id;
+                DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(p_role) || '" does not belong to the selected department.');
+                DBMS_OUTPUT.PUT_LINE('🔎 This role belongs to department: "' || v_wrong_dept_name || '".');
+            EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                    DBMS_OUTPUT.PUT_LINE('❌ Role "' || INITCAP(p_role) || '" has no associated department in master data.');
+            END;
+            RETURN;
+        END IF;
+    END IF;
+END;
+
+ -- Update candidate personal details
+IF p_first_name IS NOT NULL OR p_last_name IS NOT NULL OR
+   p_email IS NOT NULL OR p_phone IS NOT NULL OR
+   p_id_proof_type IS NOT NULL OR p_id_proof_number IS NOT NULL OR
+   p_dob IS NOT NULL OR p_city IS NOT NULL OR p_country IS NOT NULL THEN
+
+    DECLARE
+        v_old_first_name     candidates.first_name%TYPE;
+        v_old_last_name      candidates.last_name%TYPE;
+        v_old_email          candidates.email%TYPE;
+        v_old_phone          candidates.phone%TYPE;
+        v_old_id_type        candidates.id_proof_type%TYPE;
+        v_old_id_num         candidates.id_proof_num%TYPE;
+        v_old_dob            candidates.dob%TYPE;
+        v_city               candidates.city%TYPE;
+        v_country            candidates.country%TYPE;
+    BEGIN
+        -- Fetch existing values
+        SELECT first_name, last_name, email, phone, id_proof_type, id_proof_num, dob,city,country
+        INTO v_old_first_name, v_old_last_name, v_old_email,
+             v_old_phone, v_old_id_type, v_old_id_num, v_old_dob,v_city,v_country
+        FROM candidates
+        WHERE candidate_id = v_cand_id;
+
+        -- Update
+        UPDATE candidates
+        SET first_name      = INITCAP(COALESCE(p_first_name, first_name)),
+            last_name       = INITCAP(COALESCE(p_last_name, last_name)),
+            email           = LOWER(COALESCE(p_email, email)),
+            phone           = COALESCE(p_phone, phone),
+            id_proof_type   = COALESCE(p_id_proof_type, id_proof_type),
+            id_proof_num    = UPPER(COALESCE(p_id_proof_number, id_proof_num)),
+            dob             = COALESCE(p_dob, dob),
+            city           =INITCAP(COALESCE(p_city,city)),
+            country           =INITCAP(COALESCE(p_country,country))
+
+        WHERE candidate_id = v_cand_id;
+
+        DBMS_OUTPUT.PUT_LINE('✅ Personal details updated for employee ID ' || p_employee_id || ':');
+
+        IF p_first_name IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('   🔁 First Name: ' || v_old_first_name || ' → ' || INITCAP(p_first_name));
+        END IF;
+
+        IF p_last_name IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('   🔁 Last Name: ' || v_old_last_name || ' → ' || INITCAP(p_last_name));
+        END IF;
+
+        IF p_email IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('   🔁 Email: ' || v_old_email || ' → ' || LOWER(p_email));
+        END IF;
+
+        IF p_phone IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('   🔁 Phone: ' || v_old_phone || ' → ' || p_phone);
+        END IF;
+
+        IF p_id_proof_type IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('   🔁 ID Proof Type: ' || v_old_id_type || ' → ' || p_id_proof_type);
+        END IF;
+
+        IF p_id_proof_number IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('   🔁 ID Proof Number: ' || v_old_id_num || ' → ' || UPPER(p_id_proof_number));
+        END IF;
+
+        IF p_dob IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('   🔁 DOB: ' || TO_CHAR(v_old_dob, 'DD-Mon-YYYY') || ' → ' || TO_CHAR(p_dob, 'DD-Mon-YYYY'));
+        END IF;
+        
+        IF p_city IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('   🔁 City: ' || v_city || ' → ' || p_city);
+        END IF;        
+        
+        IF p_country IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('   🔁 Country: ' || v_country || ' → ' || p_country);
+        END IF;        
+
+    END;
+END IF;
+
+    -- Get experience
     SELECT ROUND(
-        c.years_of_experience + MONTHS_BETWEEN(SYSDATE, e.date_of_joining) / 12,
-        1
-    )
+        c.years_of_experience + MONTHS_BETWEEN(SYSDATE, e.date_of_joining) / 12, 1)
     INTO v_exp
     FROM employee e
     JOIN candidates c ON e.candidate_id = c.candidate_id
     WHERE e.employee_id = p_employee_id;
 
-    -- Get matching band
+    -- Determine band based on role/salary/experience
     BEGIN
-        SELECT band_id
-        INTO v_band_id
+        SELECT band_id INTO v_band_id
         FROM baseline_salary
-        WHERE job_title = v_role
+        WHERE upper(job_title) = upper(v_role)
           AND v_salary BETWEEN min_salary AND max_salary
           AND v_exp BETWEEN min_exp AND max_exp
-        ORDER BY min_exp DESC
-        FETCH FIRST 1 ROWS ONLY;
-
+        ORDER BY min_exp DESC FETCH FIRST 1 ROWS ONLY;
         v_band_found := TRUE;
     EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-            NULL; -- Try fallback
+        WHEN NO_DATA_FOUND THEN NULL;
     END;
 
-    -- Fallback band assignment if experience > defined
     IF NOT v_band_found THEN
         BEGIN
             SELECT band_id
@@ -318,15 +567,15 @@ BEGIN
             WHERE upper(job_title) = upper(v_role)
               AND v_salary BETWEEN min_salary AND max_salary
               AND max_exp = (
-                SELECT MAX(max_exp)
-                FROM baseline_salary
-                WHERE upper(job_title) = upper(v_role)
+                  SELECT MAX(max_exp)
+                  FROM baseline_salary
+                  WHERE upper(job_title) = upper(v_role)
               );
-
             v_band_found := TRUE;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                RAISE_APPLICATION_ERROR(-20002, '�?� No suitable band found for given role, salary, and experience.');
+                DBMS_OUTPUT.PUT_LINE('❌ No suitable band found for role "' || v_role || '" with salary ' || v_salary || ' and experience ' || v_exp);
+  RETURN;      
         END;
     END IF;
 
@@ -335,93 +584,99 @@ BEGIN
         UPDATE employee
         SET salary = p_salary
         WHERE employee_id = p_employee_id;
-        DBMS_OUTPUT.PUT_LINE('✅ Salary updated to ' || p_salary);
+        DBMS_OUTPUT.PUT_LINE('✅ Salary updated to ₹' || p_salary);
     END IF;
 
     -- Update role
     IF p_role IS NOT NULL THEN
         UPDATE employee
-        SET role = p_role
+        SET role = v_role
         WHERE employee_id = p_employee_id;
-        DBMS_OUTPUT.PUT_LINE('✅ Role updated to ' || p_role);
+        DBMS_OUTPUT.PUT_LINE('✅ Role updated to "' || v_role || '"');
     END IF;
 
     -- Update band
     IF p_role IS NOT NULL OR p_salary IS NOT NULL THEN
-    UPDATE employee
-    SET band_id = v_band_id
-    WHERE employee_id = p_employee_id;
-    DBMS_OUTPUT.PUT_LINE('✅ Band ID set to ' || v_band_id);
+        UPDATE employee
+        SET band_id = v_band_id
+        WHERE employee_id = p_employee_id;
+
+        SELECT band INTO v_band_name FROM baseline_salary WHERE band_id = v_band_id;
+        DBMS_OUTPUT.PUT_LINE('✅ Band updated to "' || v_band_name || '"');
     END IF;
 
-    -- Update department and manager
+    -- Update department and manager logic
     IF p_department_id IS NOT NULL THEN
         UPDATE employee
         SET department_id = p_department_id
         WHERE employee_id = p_employee_id;
-        DBMS_OUTPUT.PUT_LINE('✅ Department updated to ' || p_department_id);
 
-        -- Get department manager
+       SELECT md.masterdata_value
+INTO v_dept_name
+FROM department d
+JOIN master_data md ON d.department_name = md.masterdata_value AND upper(md.masterdata_type)='DEPARTMENT'
+WHERE d.department_id = p_department_id;
+
+
+        DBMS_OUTPUT.PUT_LINE('✅ Department updated to "' || v_dept_name || '"');
+
         DECLARE
-            v_dept_mgr_id department.manager_id%TYPE;
+            v_mgr_id department.manager_id%TYPE;
         BEGIN
-            SELECT manager_id INTO v_dept_mgr_id
-            FROM department
-            WHERE department_id = p_department_id;
+            SELECT manager_id INTO v_mgr_id
+            FROM department WHERE department_id = p_department_id;
 
-            IF v_dept_mgr_id IS NOT NULL AND v_dept_mgr_id != p_employee_id THEN
+            IF v_mgr_id IS NOT NULL AND v_mgr_id != p_employee_id THEN
                 UPDATE employee
-                SET manager_id = v_dept_mgr_id
+                SET manager_id = v_mgr_id
                 WHERE employee_id = p_employee_id;
-                DBMS_OUTPUT.PUT_LINE('✅ Manager updated to ' || v_dept_mgr_id);
+                DBMS_OUTPUT.PUT_LINE('✅ Assigned manager ID: ' || v_mgr_id);
             ELSE
-                UPDATE employee
-                SET manager_id = NULL
+                UPDATE employee SET manager_id = NULL
                 WHERE employee_id = p_employee_id;
-                DBMS_OUTPUT.PUT_LINE('No valid manager assigned.');
+                DBMS_OUTPUT.PUT_LINE('️ No manager assigned.');
             END IF;
         END;
 
-        -- If employee is a manager of previous dept, remove them
-        UPDATE department
-        SET manager_id = NULL
+        -- Clear manager role if employee was manager of old department
+        UPDATE department SET manager_id = NULL
         WHERE manager_id = p_employee_id AND department_id = v_old_dept;
 
-        -- Remove manager_id from all employees who reported to this manager
         UPDATE employee
         SET manager_id = NULL
         WHERE manager_id = p_employee_id AND department_id = v_old_dept;
     END IF;
 
-    -- Final check: if this employee is a manager of any department,
-    -- ensure they do not have a manager themselves
+    -- Ensure managers don't report to anyone
     SELECT COUNT(*) INTO v_is_manager
-    FROM department
-    WHERE manager_id = p_employee_id;
+    FROM department WHERE manager_id = p_employee_id;
 
     IF v_is_manager > 0 THEN
-        UPDATE employee
-        SET manager_id = NULL
+        UPDATE employee SET manager_id = NULL
         WHERE employee_id = p_employee_id;
-        DBMS_OUTPUT.PUT_LINE('Removed self manager assignment since employee is a department manager.');
+        DBMS_OUTPUT.PUT_LINE('✅ Manager privileges enforced: self-report removed');
     END IF;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('�?� No such employee exists.');
+        DBMS_OUTPUT.PUT_LINE('❌ Employee not found.');
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('�?� error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
 END;
+
+
 
 PROCEDURE add_department (
     p_department_name IN VARCHAR2,
     p_manager_id      IN NUMBER DEFAULT NULL,
     p_city_id         IN NUMBER DEFAULT NULL
 ) IS
-    ln_dept_id   NUMBER := department_seq.NEXTVAL;
-    v_exists     NUMBER := 0;
+    ln_dept_id       NUMBER := department_seq.NEXTVAL;
+    v_exists         NUMBER := 0;
+    v_city_name      master_data.masterdata_value%TYPE;
+    v_manager_name   VARCHAR2(200);
 BEGIN
-    -- Check if department with same name and city_id already exists
+    -- Check if department already exists with same name and city
     SELECT COUNT(*)
     INTO v_exists
     FROM department
@@ -429,7 +684,16 @@ BEGIN
       AND city_id = p_city_id;
 
     IF v_exists > 0 THEN
-        DBMS_OUTPUT.PUT_LINE('�?� Department "' || p_department_name || '" already exists in city ID ' || p_city_id || '.');
+        BEGIN
+            SELECT masterdata_value INTO v_city_name
+            FROM master_data
+            WHERE masterdata_id = p_city_id AND UPPER(masterdata_type) = 'CITY';
+
+            DBMS_OUTPUT.PUT_LINE('❌ Department "' || INITCAP(p_department_name) || '" already exists in city "' || v_city_name || '".');
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE('❌ Department "' || INITCAP(p_department_name) || '" already exists in an unknown city (ID: ' || p_city_id || ').');
+        END;
         RETURN;
     END IF;
 
@@ -441,49 +705,170 @@ BEGIN
         city_id
     ) VALUES (
         ln_dept_id,
-        p_department_name,
+        INITCAP(p_department_name),
         p_manager_id,
         p_city_id
     );
 
-    DBMS_OUTPUT.PUT_LINE('✅ Inserted into department:');
-    DBMS_OUTPUT.PUT_LINE('  ID = ' || ln_dept_id);
-    DBMS_OUTPUT.PUT_LINE('  Name = ' || p_department_name);
-    DBMS_OUTPUT.PUT_LINE('  Manager ID = ' || NVL(TO_CHAR(p_manager_id), 'Manager is not assigned yet'));
-    DBMS_OUTPUT.PUT_LINE('  City ID = ' || NVL(TO_CHAR(p_city_id), 'NULL'));
-    
+    -- Fetch city name from master_data
+    IF p_city_id IS NOT NULL THEN
+        BEGIN
+            SELECT masterdata_value INTO v_city_name
+            FROM master_data
+            WHERE masterdata_id = p_city_id AND UPPER(masterdata_type) = 'CITY';
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                v_city_name := 'Unknown City';
+        END;
+    ELSE
+        v_city_name := 'Not specified';
+    END IF;
+
+    -- Fetch manager name
+    IF p_manager_id IS NOT NULL THEN
+        BEGIN
+            SELECT INITCAP(c.first_name || ' ' || c.last_name)
+            INTO v_manager_name
+            FROM employee e
+            JOIN candidates c ON e.candidate_id = c.candidate_id
+            WHERE e.employee_id = p_manager_id;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                v_manager_name := 'Unknown Manager';
+        END;
+    ELSE
+        v_manager_name := 'Not assigned';
+    END IF;
+
+    -- Final Output
+    DBMS_OUTPUT.PUT_LINE('✅ Department inserted successfully:');
+    DBMS_OUTPUT.PUT_LINE('  ➤ ID       : ' || ln_dept_id);
+    DBMS_OUTPUT.PUT_LINE('  ➤ Name     : ' || INITCAP(p_department_name));
+    DBMS_OUTPUT.PUT_LINE('  ➤ City     : ' || v_city_name);
+    DBMS_OUTPUT.PUT_LINE('  ➤ Manager  : ' || v_manager_name);
+
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('�?� Unexpected error during department insertion: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('❌ Unexpected error during department insertion: ' || SQLERRM);
 END;
 
 
- PROCEDURE update_department (
+
+-- PROCEDURE update_department (
+--    p_department_id   IN NUMBER,
+--    p_department_name IN VARCHAR2 DEFAULT NULL,
+--    p_manager_id      IN NUMBER DEFAULT NULL,
+--    p_city_id         IN NUMBER DEFAULT NULL
+--) IS
+--    v_new_name   VARCHAR2(100);
+--    v_new_city   NUMBER;
+--    v_count      NUMBER;
+--BEGIN
+--    -- Step 1: Fetch current values if not provided
+--    SELECT department_name, city_id
+--    INTO v_new_name, v_new_city
+--    FROM department
+--    WHERE department_id = p_department_id;
+--
+--    -- Override only if parameters are provided
+--    IF p_department_name IS NOT NULL THEN
+--        v_new_name := p_department_name;
+--    END IF;
+--
+--    IF p_city_id IS NOT NULL THEN
+--        v_new_city := p_city_id;
+--    END IF;
+--
+--    -- Step 2: Check uniqueness for (name, city) combination
+--    SELECT COUNT(*)
+--    INTO v_count
+--    FROM department
+--    WHERE UPPER(department_name) = UPPER(v_new_name)
+--      AND city_id = v_new_city
+--      AND department_id != p_department_id;
+--
+--    IF v_count > 0 THEN
+--        DBMS_OUTPUT.PUT_LINE(' Department name "' || v_new_name || '" already exists in city ID ' || v_new_city || '.');
+--        RETURN;
+--    END IF;
+--
+--    -- Step 3: Update department_name and/or city_id
+--    IF p_department_name IS NOT NULL OR p_city_id IS NOT NULL THEN
+--        UPDATE department
+--        SET department_name = v_new_name,
+--            city_id = v_new_city
+--        WHERE department_id = p_department_id;
+--
+--        DBMS_OUTPUT.PUT_LINE('✅ Updated department name/city to "' || v_new_name || '", City ID: ' || v_new_city || ' for department_id = ' || p_department_id);
+--    END IF;
+--
+--    -- Step 4: Update manager_id if given
+--    IF p_manager_id IS NOT NULL THEN
+--        SELECT COUNT(*)
+--        INTO v_count
+--        FROM employee
+--        WHERE employee_id = p_manager_id
+--          AND department_id = p_department_id;
+--
+--        IF v_count = 0 THEN
+--            RAISE_APPLICATION_ERROR(-20010, 'Manager must belong to the same department.');
+--        END IF;
+--
+--        -- Assign manager to department
+--        UPDATE department
+--        SET manager_id = p_manager_id
+--        WHERE department_id = p_department_id;
+--
+--        -- Set manager_id to all employees (except manager himself)
+--        UPDATE employee
+--        SET manager_id = p_manager_id
+--        WHERE department_id = p_department_id
+--          AND employee_id != p_manager_id;
+--
+--        -- Ensure manager himself has NULL as manager
+--        UPDATE employee
+--        SET manager_id = NULL
+--        WHERE employee_id = p_manager_id;
+--
+--        DBMS_OUTPUT.PUT_LINE('✅ Updated manager_id to ' || p_manager_id || ' for department_id = ' || p_department_id);
+--    END IF;
+--
+--EXCEPTION
+--    WHEN NO_DATA_FOUND THEN
+--        DBMS_OUTPUT.PUT_LINE('�?� Department with ID ' || p_department_id || ' not found.');
+--    WHEN OTHERS THEN
+--        DBMS_OUTPUT.PUT_LINE('�?� Unexpected error: ' || SQLERRM);
+--END;
+
+PROCEDURE update_department (
     p_department_id   IN NUMBER,
     p_department_name IN VARCHAR2 DEFAULT NULL,
     p_manager_id      IN NUMBER DEFAULT NULL,
     p_city_id         IN NUMBER DEFAULT NULL
 ) IS
-    v_new_name   VARCHAR2(100);
-    v_new_city   NUMBER;
-    v_count      NUMBER;
+    v_new_name      VARCHAR2(100);
+    v_new_city      NUMBER;
+    v_count         NUMBER;
+    v_city_name     master_data.masterdata_value%TYPE;
+    v_mgr_name      VARCHAR2(200);
+    v_dept_name     department.department_name%TYPE;
 BEGIN
-    -- Step 1: Fetch current values if not provided
+    -- Step 1: Fetch current department name and city if not provided
     SELECT department_name, city_id
     INTO v_new_name, v_new_city
     FROM department
     WHERE department_id = p_department_id;
 
-    -- Override only if parameters are provided
+    -- Override with new values if provided
     IF p_department_name IS NOT NULL THEN
-        v_new_name := p_department_name;
+        v_new_name := INITCAP(p_department_name);
     END IF;
 
     IF p_city_id IS NOT NULL THEN
         v_new_city := p_city_id;
     END IF;
 
-    -- Step 2: Check uniqueness for (name, city) combination
+    -- Step 2: Check if another department with same name & city exists
     SELECT COUNT(*)
     INTO v_count
     FROM department
@@ -492,56 +877,96 @@ BEGIN
       AND department_id != p_department_id;
 
     IF v_count > 0 THEN
-        DBMS_OUTPUT.PUT_LINE('�?� Department name "' || v_new_name || '" already exists in city ID ' || v_new_city || '.');
+        BEGIN
+            SELECT masterdata_value INTO v_city_name
+            FROM master_data
+            WHERE masterdata_id = v_new_city AND UPPER(masterdata_type) = 'CITY';
+
+            DBMS_OUTPUT.PUT_LINE('❌ Department "' || v_new_name || '" already exists in city "' || v_city_name || '".');
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE('❌ Department "' || v_new_name || '" already exists in unknown city (ID: ' || v_new_city || ').');
+        END;
         RETURN;
     END IF;
 
-    -- Step 3: Update department_name and/or city_id
+    -- Step 3: Update department name and/or city
     IF p_department_name IS NOT NULL OR p_city_id IS NOT NULL THEN
         UPDATE department
         SET department_name = v_new_name,
             city_id = v_new_city
         WHERE department_id = p_department_id;
 
-        DBMS_OUTPUT.PUT_LINE('✅ Updated department name/city to "' || v_new_name || '", City ID: ' || v_new_city || ' for department_id = ' || p_department_id);
+        BEGIN
+            SELECT masterdata_value INTO v_city_name
+            FROM master_data
+            WHERE masterdata_id = v_new_city AND UPPER(masterdata_type) = 'CITY';
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                v_city_name := 'Unknown';
+        END;
+
+        DBMS_OUTPUT.PUT_LINE('✅ Department updated:');
+        DBMS_OUTPUT.PUT_LINE('   ➤ Name : ' || v_new_name);
+        DBMS_OUTPUT.PUT_LINE('   ➤ City : ' || v_city_name);
     END IF;
 
-    -- Step 4: Update manager_id if given
+    -- Step 4: Update manager assignment
     IF p_manager_id IS NOT NULL THEN
-        SELECT COUNT(*)
-        INTO v_count
+        SELECT COUNT(*) INTO v_count
         FROM employee
-        WHERE employee_id = p_manager_id
-          AND department_id = p_department_id;
+        WHERE employee_id = p_manager_id AND department_id = p_department_id;
 
         IF v_count = 0 THEN
-            RAISE_APPLICATION_ERROR(-20010, '�?� Manager must belong to the same department.');
+            DBMS_OUTPUT.PUT_LINE('❌ Manager (ID: ' || p_manager_id || ') does not belong to this department.');
+            RETURN;
         END IF;
 
-        -- Assign manager to department
+        -- Update manager in department
         UPDATE department
         SET manager_id = p_manager_id
         WHERE department_id = p_department_id;
 
-        -- Set manager_id to all employees (except manager himself)
+        -- Update all other employees to report to manager
         UPDATE employee
         SET manager_id = p_manager_id
         WHERE department_id = p_department_id
           AND employee_id != p_manager_id;
 
-        -- Ensure manager himself has NULL as manager
+        -- Ensure manager has no manager
         UPDATE employee
         SET manager_id = NULL
         WHERE employee_id = p_manager_id;
 
-        DBMS_OUTPUT.PUT_LINE('✅ Updated manager_id to ' || p_manager_id || ' for department_id = ' || p_department_id);
+        -- Get manager and department name
+        SELECT INITCAP(c.first_name || ' ' || c.last_name), d.department_name
+        INTO v_mgr_name, v_dept_name
+        FROM employee e
+        JOIN candidates c ON e.candidate_id = c.candidate_id
+        JOIN department d ON d.department_id = e.department_id
+        WHERE e.employee_id = p_manager_id;
+
+        DBMS_OUTPUT.PUT_LINE('✅ "' || v_mgr_name || '" is now the manager of the "' || v_dept_name || '" department.');
+
+        -- Print team members reporting to the manager
+        DBMS_OUTPUT.PUT_LINE('👥 Employees now reporting to ' || v_mgr_name || ':');
+        FOR rec IN (
+            SELECT INITCAP(c.first_name || ' ' || c.last_name) AS emp_name
+            FROM employee e
+            JOIN candidates c ON e.candidate_id = c.candidate_id
+            WHERE e.department_id = p_department_id
+              AND e.employee_id != p_manager_id
+              AND e.manager_id = p_manager_id
+        ) LOOP
+            DBMS_OUTPUT.PUT_LINE('   ➤ ' || rec.emp_name);
+        END LOOP;
     END IF;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('�?� Department with ID ' || p_department_id || ' not found.');
+        DBMS_OUTPUT.PUT_LINE('❌ Department with ID ' || p_department_id || ' not found.');
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('�?� Unexpected error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
 END;
 
 
@@ -1217,6 +1642,7 @@ END pkg_emp_ops;
 
 
 
+<<<<<<< HEAD
 
 --CREATE OR REPLACE TRIGGER trg_validate_leave
 --BEFORE INSERT OR UPDATE ON employee_leaves
@@ -1278,6 +1704,68 @@ END pkg_emp_ops;
 --
 --    END IF;
 --END;
+=======
+CREATE OR REPLACE TRIGGER trg_validate_leave
+BEFORE INSERT OR UPDATE ON employee_leaves
+FOR EACH ROW
+DECLARE
+    ln_count   NUMBER;
+    lv_gender VARCHAR2(1);
+BEGIN
+    -- 1. Start date must be before or same as end date
+    IF :NEW.start_date > :NEW.end_date THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Start date must be before or equal to end date.');
+    END IF;
+
+    --  2. Overlap check should run only when:
+    --    a) INSERTING a new leave
+    --    b) UPDATING start_date or end_date
+    IF (:NEW.start_date != :OLD.start_date OR
+        :NEW.end_date   != :OLD.end_date OR
+        INSERTING) THEN
+
+        -- 3. Check if there is any overlapping leave for same employee
+        SELECT COUNT(*) INTO ln_count
+        FROM employee_leaves
+        WHERE employee_id = :NEW.employee_id
+          AND status IN ('Pending', 'Approved')
+          AND (
+              (:NEW.start_date BETWEEN start_date AND end_date)
+              OR (:NEW.end_date BETWEEN start_date AND end_date)
+              OR (start_date BETWEEN :NEW.start_date AND :NEW.end_date)
+              OR (end_date BETWEEN :NEW.start_date AND :NEW.end_date)
+          );
+
+        -- 4. If overlapping leave found, raise error
+        IF ln_count > 0 THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Leave dates overlap with existing approved or pending leave.');
+        END IF;
+        -- 5. Gender-Based Business Rule: Maternity Leave for Female Only
+        IF LOWER(:NEW.leaves_type) = 'maternity' THEN
+            SELECT gender INTO lv_gender
+            FROM employee
+            WHERE employee_id = :NEW.employee_id;
+    
+            IF lv_gender != 'F' THEN
+                RAISE_APPLICATION_ERROR(-20013, 'Maternity leave is only applicable for female employees.');
+            END IF;
+        END IF;
+
+    -- 6. Gender-Based Business Rule: Paternity Leave for Male Only
+    IF LOWER(:NEW.leaves_type) = 'paternity' THEN
+        SELECT gender INTO lv_gender
+        FROM employee
+        WHERE employee_id = :NEW.employee_id;
+
+        IF lv_gender != 'M' THEN
+            RAISE_APPLICATION_ERROR(-20014, 'Paternity leave is only applicable for male employees.');
+        END IF;
+    END IF;
+
+
+    END IF;
+END;
+>>>>>>> e69583a65d15c5f3f9b26d6347544f20e28b0014
 
 
 CREATE OR REPLACE TRIGGER trg_prevent_duplicate_attendance

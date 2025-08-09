@@ -84,7 +84,13 @@ CREATE TABLE employee_leaves (
     approved_by   NUMBER REFERENCES employee(employee_id),
     PRIMARY KEY (employee_id, start_date)
 );
+<<<<<<< HEAD
 --drop table employee_leaves;
+=======
+
+
+
+>>>>>>> e69583a65d15c5f3f9b26d6347544f20e28b0014
 -- Employee Attendance Table
 CREATE TABLE employee_attendance (
     attendance_id     NUMBER PRIMARY KEY,
