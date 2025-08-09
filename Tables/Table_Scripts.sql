@@ -1,4 +1,4 @@
--- Master Data Table
+hat -- Master Data Table
 CREATE TABLE master_data (
     masterdata_id     NUMBER PRIMARY KEY,
     parent_id         NUMBER,
@@ -84,8 +84,7 @@ CREATE TABLE employee_leaves (
     approved_by   NUMBER REFERENCES employee(employee_id),
     PRIMARY KEY (employee_id, start_date)
 );
-
-
+--drop table employee_leaves;
 -- Employee Attendance Table
 CREATE TABLE employee_attendance (
     attendance_id     NUMBER PRIMARY KEY,
@@ -103,7 +102,7 @@ CREATE TABLE employee_attendance (
         UNIQUE (employee_id, attendance_date)
 );
 
-drop table employee_attendance;
+--drop table employee_attendance;
 -- Baseline Salary Table (Composite PK)
 CREATE TABLE baseline_salary (
     band_id      NUMBER PRIMARY KEY,
@@ -244,3 +243,41 @@ ALTER TABLE candidates DROP CONSTRAINT UNIQ_ID_PROOF;
 ALTER TABLE candidates DROP CONSTRAINT UNIQUE_PHONE;
 
 
+CREATE TABLE leave_type_master (
+    leave_type_id    NUMBER PRIMARY KEY,
+    leave_type       VARCHAR2(30) UNIQUE NOT NULL,  -- descriptive label
+    is_paid          CHAR(1) CHECK (is_paid IN ('Y', 'N')),
+    gender_allowed   VARCHAR2(10) CHECK (gender_allowed IN ('All', 'M', 'F')),
+    annual_limit     NUMBER,
+    carry_forward    CHAR(1) CHECK (carry_forward IN ('Y', 'N'))
+);
+
+CREATE SEQUENCE seq_leave_type_id START WITH 1 INCREMENT BY 1;
+
+
+CREATE TABLE leave_balance (
+    employee_id     NUMBER REFERENCES employee(employee_id),
+    leave_type_id   NUMBER REFERENCES leave_type_master(leave_type_id),
+    balance_days    NUMBER DEFAULT 0 CHECK (balance_days >= 0),
+    last_updated    DATE DEFAULT SYSDATE,
+    leave_year      NUMBER DEFAULT EXTRACT(YEAR FROM SYSDATE),
+    CONSTRAINT pk_leave_balance PRIMARY KEY (employee_id, leave_type_id, leave_year)
+);
+
+CREATE TABLE leave_application (
+    leave_id        NUMBER PRIMARY KEY,
+    employee_id     NUMBER REFERENCES employee(employee_id),  
+    leave_type_id   NUMBER REFERENCES leave_type_master(leave_type_id),  
+    start_date      DATE NOT NULL,
+    end_date        DATE NOT NULL,
+    status          VARCHAR2(20) CHECK (status IN ('Pending', 'Approved', 'Rejected')),
+    applied_date    DATE DEFAULT SYSDATE,
+    reason          VARCHAR2(200),
+    approved_by     NUMBER REFERENCES employee(employee_id)  -- Manager ID
+);
+
+CREATE SEQUENCE seq_leave_id
+START WITH 1
+INCREMENT BY 1
+NOCACHE
+NOCYCLE;

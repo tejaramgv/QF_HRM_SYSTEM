@@ -44,19 +44,19 @@ PROCEDURE update_employee (
     p_city_id         IN NUMBER DEFAULT NULL
     );
     
-    PROCEDURE apply_leave (
-    p_employee_id IN NUMBER,
-    p_leave_type  IN VARCHAR2,
-    p_start_date  IN DATE,
-    p_end_date    IN DATE
-);
-
-PROCEDURE process_leave (
-    p_employee_id IN NUMBER,
-    p_start_date  IN DATE,
-    p_approved_by IN NUMBER DEFAULT NULL,
-    p_action      IN VARCHAR2  -- 'APPROVE' or 'REJECT'
-);
+--    PROCEDURE apply_leave (
+--    p_employee_id IN NUMBER,
+--    p_leave_type  IN VARCHAR2,
+--    p_start_date  IN DATE,
+--    p_end_date    IN DATE
+--);
+--
+--PROCEDURE process_leave (
+--    p_employee_id IN NUMBER,
+--    p_start_date  IN DATE,
+--    p_approved_by IN NUMBER DEFAULT NULL,
+--    p_action      IN VARCHAR2  -- 'APPROVE' or 'REJECT'
+--);
 
 PROCEDURE mark_in_time (
     p_employee_id IN NUMBER
@@ -71,6 +71,19 @@ PROCEDURE mark_leave (
 );
 
 PROCEDURE mark_absentees;
+
+PROCEDURE process_leave (
+    p_leave_id         IN NUMBER,
+    p_action           IN VARCHAR2,       -- 'Approved' or 'Rejected'
+    p_approved_by      IN NUMBER          -- manager's employee_id
+);
+PROCEDURE apply_leave (
+    p_employee_id   IN NUMBER,
+    p_leave_type    IN VARCHAR2,  -- e.g., 'Casual'
+    p_start_date    IN DATE,
+    p_end_date      IN DATE,
+    p_reason        IN VARCHAR2
+);
 END pkg_emp_ops;
 /
 
@@ -189,7 +202,7 @@ BEGIN
            e.salary,
            b.band,
            e.date_of_joining,
-           e.leaves_balance,
+
 
            d.department_name,
            city_md.masterdata_value,
@@ -201,7 +214,7 @@ BEGIN
             WHERE m.employee_id = e.manager_id)
     INTO v_full_name, v_gender, v_dob, v_email, v_contact, v_id_proof_type,
          v_id_proof_number, v_degree, v_college, v_experience,
-         v_role, v_status, v_salary, v_band, v_doj, v_leave_balance,
+         v_role, v_status, v_salary, v_band, v_doj,
          v_department, v_city, v_country, v_manager_name
     FROM employee e
     JOIN candidates c ON c.candidate_id = e.candidate_id
@@ -532,119 +545,537 @@ EXCEPTION
 END;
 
 
+--PROCEDURE apply_leave (
+--    p_employee_id IN NUMBER,
+--    p_leave_type  IN VARCHAR2,
+--    p_start_date  IN DATE,
+--    p_end_date    IN DATE
+--) AS
+--ln_exists NUMBER;
+--BEGIN
+--    SELECT COUNT(*) INTO ln_exists
+--    FROM employee
+--    WHERE employee_id = p_employee_id;
+--
+--    IF ln_exists = 0 THEN
+--        RAISE_APPLICATION_ERROR(-20010, 'Employee does not exist with employee_id '||p_employee_id);
+--    END IF;
+--    
+--    IF LOWER(p_leave_type) NOT IN ('sick', 'casual', 'annual', 'maternity', 'paternity', 'unpaid') THEN
+--        RAISE_APPLICATION_ERROR(-20011, 'Invalid leave type.Please check the leave type');
+--    END IF;
+--
+--
+--    INSERT INTO employee_leaves (
+--        employee_id, leaves_type, start_date, end_date, status, approved_by
+--    ) VALUES (
+--        p_employee_id, p_leave_type, p_start_date, p_end_date, 'Pending', NULL
+--    );
+--
+--    DBMS_OUTPUT.PUT_LINE('Leave request submitted successfully for employee_id'||P_employee_id);
+--EXCEPTION
+--    WHEN OTHERS THEN
+--        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+--END;
+--
+--PROCEDURE process_leave (
+--    p_employee_id IN NUMBER,
+--    p_start_date  IN DATE,
+--    p_approved_by IN NUMBER DEFAULT NULL,
+--    p_action      IN VARCHAR2  -- 'APPROVE' or 'REJECT'
+--) AS
+--    Ln_days        NUMBER := 0;
+--    Ln_balance     NUMBER;
+--    Ld_date        DATE;
+--    Ld_end_date    DATE;
+--    lv2_status     VARCHAR2(20);
+--    ln_managerid  NUMBER;
+--
+--BEGIN
+--    -- Get the end_date for this leave request
+--    SELECT status,end_date INTO Ld_end_date,lv2_status
+--    FROM employee_leaves
+--    WHERE employee_id = p_employee_id AND start_date = p_start_date;
+--
+--    IF LOWER(lv2_status) != 'pending' THEN
+--        RAISE_APPLICATION_ERROR(-20007, 'Leave already processed.');
+--    END IF;
+--    SELECT manager_id INTO ln_managerid
+--    FROM employee
+--    WHERE employee_id = p_employee_id;
+--
+--    IF ln_managerid IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20008, 'Employee has no assigned manager.');
+--    END IF;
+--
+--    IF ln_managerid != p_approved_by THEN
+--        RAISE_APPLICATION_ERROR(-20009, 'Only the assigned manager can approve/reject this leave.');
+--    END IF;
+--
+--    -- Count only weekdays between start_date and end_date
+--    Ld_date := p_start_date;
+--    WHILE Ld_date <= Ld_end_date LOOP
+--        -- Exclude Saturday (7) and Sunday (1)
+--        IF TO_CHAR(Ld_date, 'D') NOT IN ('1','7') THEN
+--            Ln_days := Ln_days + 1;
+--        END IF;
+--        Ld_date := Ld_date + 1;
+--    END LOOP;
+--
+--    IF UPPER(p_action) = 'APPROVE' THEN
+--        -- Check leave balance
+--        SELECT Leaves_Balance INTO Ln_balance
+--        FROM employee
+--        WHERE employee_id = p_employee_id;
+--
+--        IF Ln_days > Ln_balance THEN
+--            RAISE_APPLICATION_ERROR(-20003, 'Not enough leave balance.');
+--        END IF;
+--
+--        -- Update leave status to Approved and record approver
+--        UPDATE employee_leaves
+--        SET status = 'Approved',
+--            approved_by = p_approved_by
+--        WHERE employee_id = p_employee_id AND start_date = p_start_date;
+--
+--        -- Deduct leave days from total balance
+--        UPDATE employee
+--        SET Leaves_Balance = Leaves_Balance - Ln_days
+--        WHERE employee_id = p_employee_id;
+--
+--        DBMS_OUTPUT.PUT_LINE('Leave approved for  '||P_Employee_id||' and ' || Ln_days || ' working days deducted.');
+--
+--    ELSIF UPPER(p_action) = 'REJECT' THEN
+--        -- Just update status to Rejected
+--        UPDATE employee_leaves
+--        SET status = 'Rejected',
+--            approved_by = p_approved_by
+--        WHERE employee_id = p_employee_id AND start_date = p_start_date;
+--
+--        DBMS_OUTPUT.PUT_LINE('Leave rejected for '||P_employee_id);
+--
+--    ELSE
+--        RAISE_APPLICATION_ERROR(-20004, 'Invalid action. Use APPROVE or REJECT.');
+--    END IF;
+--END;
 PROCEDURE apply_leave (
-    p_employee_id IN NUMBER,
-    p_leave_type  IN VARCHAR2,
-    p_start_date  IN DATE,
-    p_end_date    IN DATE
-) AS
-ln_exists NUMBER;
+    p_employee_id   IN NUMBER,
+    p_leave_type    IN VARCHAR2,  -- e.g., 'Casual'
+    p_start_date    IN DATE,
+    p_end_date      IN DATE,
+    p_reason        IN VARCHAR2
+)
+IS
+    v_leave_type_id leave_type_master.leave_type_id%TYPE;
+    v_is_paid       CHAR(1);
+    v_gender        VARCHAR2(10);
+    v_errors        VARCHAR2(4000) := '';
+    v_overlap_count NUMBER;
+    v_leave_days    NUMBER;
 BEGIN
-    SELECT COUNT(*) INTO ln_exists
-    FROM employee
-    WHERE employee_id = p_employee_id;
+    -- 1. Validate leave type exists and get ID, is_paid
+    BEGIN
+        SELECT leave_type_id, is_paid
+        INTO v_leave_type_id, v_is_paid
+        FROM leave_type_master
+        WHERE UPPER(leave_type) = UPPER(p_leave_type);
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            v_errors := v_errors || 'Leave type "' || p_leave_type || '" does not exist. ';
+    END;
 
-    IF ln_exists = 0 THEN
-        RAISE_APPLICATION_ERROR(-20010, 'Employee does not exist with employee_id '||p_employee_id);
+    -- 2. Validate employee exists and get gender (to check gender_allowed)
+     BEGIN
+        SELECT c.gender
+        INTO v_gender
+        FROM employee e
+        JOIN candidates c ON e.candidate_id = c.candidate_id
+        WHERE e.employee_id = p_employee_id;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            v_errors := v_errors || 'Employee ID ' || p_employee_id || ' not found. ';
+    END;
+    -- 3. If leave type found, check gender allowed for this leave type
+    IF v_leave_type_id IS NOT NULL THEN
+        DECLARE
+            v_allowed_gender VARCHAR2(10);
+        BEGIN
+            SELECT gender_allowed INTO v_allowed_gender FROM leave_type_master WHERE leave_type_id = v_leave_type_id;
+            IF v_allowed_gender <> 'All' AND UPPER(v_allowed_gender) <> UPPER(v_gender) THEN
+                v_errors := v_errors || 'Leave type "' || p_leave_type || '" is not allowed for your gender (' || v_gender || '). ';
+            END IF;
+        END;
     END IF;
-    
-    IF LOWER(p_leave_type) NOT IN ('sick', 'casual', 'annual', 'maternity', 'paternity', 'unpaid') THEN
-        RAISE_APPLICATION_ERROR(-20011, 'Invalid leave type.Please check the leave type');
+
+    -- 4. Validate dates
+    IF p_start_date > p_end_date THEN
+        v_errors := v_errors || 'Start date cannot be after end date. ';
+    END IF;
+    IF p_start_date < TRUNC(SYSDATE) THEN
+        v_errors := v_errors || 'Start date cannot be in the past. ';
     END IF;
 
+    -- 5. Validate no overlapping leaves for this employee (any leave type)
+    IF v_leave_type_id IS NOT NULL THEN
+        SELECT COUNT(*)
+        INTO v_overlap_count
+        FROM leave_application
+        WHERE employee_id = p_employee_id
+          AND status IN ('Pending', 'Approved')
+          AND (
+              (p_start_date BETWEEN start_date AND end_date)
+              OR (p_end_date BETWEEN start_date AND end_date)
+              OR (start_date BETWEEN p_start_date AND p_end_date)
+              OR (end_date BETWEEN p_start_date AND p_end_date)
+          );
+        IF v_overlap_count > 0 THEN
+            v_errors := v_errors || 'You already have an overlapping leave for these dates. ';
+        END IF;
+    END IF;
 
-    INSERT INTO employee_leaves (
-        employee_id, leaves_type, start_date, end_date, status, approved_by
+    -- 6. If errors exist, raise all at once
+    IF v_errors IS NOT NULL AND LENGTH(TRIM(v_errors)) > 0 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Please correct the following: ' || v_errors);
+    END IF;
+
+    -- 7. Insert leave application with status 'Pending'
+    INSERT INTO leave_application (
+        leave_id, employee_id, leave_type_id, start_date, end_date, status, reason, applied_date
     ) VALUES (
-        p_employee_id, p_leave_type, p_start_date, p_end_date, 'Pending', NULL
+        seq_leave_id.NEXTVAL, p_employee_id, v_leave_type_id, p_start_date, p_end_date, 'Pending', p_reason, SYSDATE
     );
 
-    DBMS_OUTPUT.PUT_LINE('Leave request submitted successfully for employee_id'||P_employee_id);
+    COMMIT;
+
+    DBMS_OUTPUT.PUT_LINE('Leave application submitted successfully.');
+
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
-END;
+        RAISE;
+END apply_leave;
+/
+
 
 PROCEDURE process_leave (
-    p_employee_id IN NUMBER,
-    p_start_date  IN DATE,
-    p_approved_by IN NUMBER DEFAULT NULL,
-    p_action      IN VARCHAR2  -- 'APPROVE' or 'REJECT'
-) AS
-    Ln_days        NUMBER := 0;
-    Ln_balance     NUMBER;
-    Ld_date        DATE;
-    Ld_end_date    DATE;
-    lv2_status     VARCHAR2(20);
-    ln_managerid  NUMBER;
+    p_leave_id         IN NUMBER,
+    p_action           IN VARCHAR2,       -- 'Approved' or 'Rejected'
+    p_approved_by      IN NUMBER          -- manager's employee_id
+)
+IS
+    -- Variables to hold data from the database
+    v_status            VARCHAR2(20);
+    v_employee_id       NUMBER;
+    v_leave_type_id     NUMBER;
+    v_start_date        DATE;
+    v_end_date          DATE;
+    v_days              NUMBER := 0;
+    v_balance           NUMBER;
+    v_leave_paid        CHAR(1);
+    v_manager_id        NUMBER;
+    v_errors            VARCHAR2(4000) := '';
+
+    -- Leave type IDs for Casual, Sick, and Loss of Pay (LOP)
+    v_casual_id         NUMBER;
+    v_sick_id           NUMBER;
+    v_lop_id            NUMBER;
+    v_casual_balance    NUMBER := 0;
+    v_sick_balance      NUMBER := 0;
+    v_lop_balance       NUMBER := 0;
+    v_remaining_days    NUMBER;
+
+    -- Function to count only weekdays (Mon-Fri) between start and end dates
+    FUNCTION count_weekdays(start_date DATE, end_date DATE) RETURN NUMBER IS
+        v_count NUMBER := 0;
+        v_curr DATE := start_date;
+        v_day NUMBER;
+    BEGIN
+        WHILE v_curr <= end_date LOOP
+            v_day := TO_CHAR(v_curr, 'D'); -- Get day of week (Sunday=1)
+            IF v_day BETWEEN 2 AND 6 THEN  -- Monday to Friday
+                v_count := v_count + 1;
+            END IF;
+            v_curr := v_curr + 1;
+        END LOOP;
+        RETURN v_count;
+    END;
 
 BEGIN
-    -- Get the end_date for this leave request
-    SELECT status,end_date INTO Ld_end_date,lv2_status
-    FROM employee_leaves
-    WHERE employee_id = p_employee_id AND start_date = p_start_date;
+    -- Step 1: Check if the leave request exists and is still waiting for approval
+    SELECT status, employee_id, leave_type_id, start_date, end_date
+    INTO v_status, v_employee_id, v_leave_type_id, v_start_date, v_end_date
+    FROM leave_application
+    WHERE leave_id = p_leave_id;
 
-    IF LOWER(lv2_status) != 'pending' THEN
-        RAISE_APPLICATION_ERROR(-20007, 'Leave already processed.');
+    IF v_status != 'Pending' THEN
+        v_errors := v_errors || 'This leave has already been processed. ';
     END IF;
-    SELECT manager_id INTO ln_managerid
+
+    -- Step 2: Make sure the action is either "Approved" or "Rejected"
+    IF UPPER(p_action) NOT IN ('APPROVED', 'REJECTED') THEN
+        v_errors := v_errors || 'Action must be "Approved" or "Rejected". ';
+    END IF;
+
+    -- Step 3: Confirm that the person approving is the employee’s manager
+    SELECT manager_id
+    INTO v_manager_id
     FROM employee
-    WHERE employee_id = p_employee_id;
+    WHERE employee_id = v_employee_id;
 
-    IF ln_managerid IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20008, 'Employee has no assigned manager.');
+    IF v_manager_id IS NULL THEN
+        v_errors := v_errors || 'This employee has no manager assigned. ';
+    ELSIF v_manager_id != p_approved_by THEN
+        v_errors := v_errors || 'You are not authorized to approve this leave. ';
     END IF;
 
-    IF ln_managerid != p_approved_by THEN
-        RAISE_APPLICATION_ERROR(-20009, 'Only the assigned manager can approve/reject this leave.');
+    -- Step 4: If approving, calculate number of working days (weekdays only) in leave
+    IF UPPER(p_action) = 'APPROVED' THEN
+        v_days := count_weekdays(v_start_date, v_end_date);
+        IF v_days <= 0 THEN
+            v_errors := v_errors || 'Leave must be for at least 1 working day. ';
+        END IF;
     END IF;
 
-    -- Count only weekdays between start_date and end_date
-    Ld_date := p_start_date;
-    WHILE Ld_date <= Ld_end_date LOOP
-        -- Exclude Saturday (7) and Sunday (1)
-        IF TO_CHAR(Ld_date, 'D') NOT IN ('1','7') THEN
-            Ln_days := Ln_days + 1;
+    -- Step 5: Cannot approve leave starting in the past
+    IF UPPER(p_action) = 'APPROVED' AND v_start_date < TRUNC(SYSDATE) THEN
+        v_errors := v_errors || 'Leave cannot start in the past. ';
+    END IF;
+
+    -- Step 6: Find leave type IDs for Casual, Sick, and Loss of Pay
+    SELECT leave_type_id INTO v_casual_id FROM leave_type_master WHERE UPPER(leave_type) = 'CASUAL';
+    SELECT leave_type_id INTO v_sick_id FROM leave_type_master WHERE UPPER(leave_type) = 'SICK';
+    SELECT leave_type_id INTO v_lop_id FROM leave_type_master WHERE UPPER(leave_type) = 'LOSS OF PAY';
+
+    -- Step 7: If approving, check leave balances and adjust accordingly
+    IF UPPER(p_action) = 'APPROVED' THEN
+
+        -- Get the employee’s balance and whether leave is paid for the requested leave type
+        BEGIN
+            SELECT NVL(lb.balance_days,0), ltm.is_paid
+            INTO v_balance, v_leave_paid
+            FROM leave_balance lb
+            JOIN leave_type_master ltm ON lb.leave_type_id = ltm.leave_type_id
+            WHERE lb.employee_id = v_employee_id
+              AND lb.leave_type_id = v_leave_type_id
+              AND lb.leave_year = EXTRACT(YEAR FROM v_start_date);
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                v_balance := 0;
+                v_leave_paid := 'Y'; -- Assume paid if unknown
+        END;
+
+        -- If leave is paid leave, check balance and deduct leave days
+        IF v_leave_paid = 'Y' THEN
+            IF v_balance >= v_days THEN
+                -- Enough leave balance, deduct directly
+                UPDATE leave_balance
+                SET balance_days = balance_days - v_days,
+                    last_updated = SYSDATE
+                WHERE employee_id = v_employee_id
+                  AND leave_type_id = v_leave_type_id
+                  AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+            ELSE
+                -- Not enough balance, apply fallback rules
+
+                v_remaining_days := v_days;
+
+                -- Use up requested leave type balance first
+                IF v_balance > 0 THEN
+                    UPDATE leave_balance
+                    SET balance_days = 0,
+                        last_updated = SYSDATE
+                    WHERE employee_id = v_employee_id
+                      AND leave_type_id = v_leave_type_id
+                      AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                    v_remaining_days := v_remaining_days - v_balance;
+                END IF;
+
+                -- Fallback logic depending on leave type requested
+
+                IF v_leave_type_id = v_sick_id THEN
+                    -- Sick leave requested: fallback Sick ? Casual ? LOP
+
+                    IF v_remaining_days > 0 THEN
+                        SELECT NVL(balance_days,0) INTO v_casual_balance
+                        FROM leave_balance
+                        WHERE employee_id = v_employee_id
+                          AND leave_type_id = v_casual_id
+                          AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                        IF v_casual_balance >= v_remaining_days THEN
+                            UPDATE leave_balance
+                            SET balance_days = balance_days - v_remaining_days,
+                                last_updated = SYSDATE
+                            WHERE employee_id = v_employee_id
+                              AND leave_type_id = v_casual_id
+                              AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                            v_remaining_days := 0;
+                        ELSE
+                            UPDATE leave_balance
+                            SET balance_days = 0,
+                                last_updated = SYSDATE
+                            WHERE employee_id = v_employee_id
+                              AND leave_type_id = v_casual_id
+                              AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                            v_remaining_days := v_remaining_days - v_casual_balance;
+                        END IF;
+                    END IF;
+
+                ELSIF v_leave_type_id = v_casual_id THEN
+                    -- Casual leave requested: fallback Casual ? Sick ? LOP
+
+                    IF v_remaining_days > 0 THEN
+                        SELECT NVL(balance_days,0) INTO v_sick_balance
+                        FROM leave_balance
+                        WHERE employee_id = v_employee_id
+                          AND leave_type_id = v_sick_id
+                          AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                        IF v_sick_balance >= v_remaining_days THEN
+                            UPDATE leave_balance
+                            SET balance_days = balance_days - v_remaining_days,
+                                last_updated = SYSDATE
+                            WHERE employee_id = v_employee_id
+                              AND leave_type_id = v_sick_id
+                              AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                            v_remaining_days := 0;
+                        ELSE
+                            UPDATE leave_balance
+                            SET balance_days = 0,
+                                last_updated = SYSDATE
+                            WHERE employee_id = v_employee_id
+                              AND leave_type_id = v_sick_id
+                              AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                            v_remaining_days := v_remaining_days - v_sick_balance;
+                        END IF;
+                    END IF;
+
+                ELSE
+                    -- Other leave types: fallback Requested ? Casual ? Sick ? LOP
+
+                    IF v_casual_id != v_leave_type_id AND v_remaining_days > 0 THEN
+                        SELECT NVL(balance_days,0) INTO v_casual_balance
+                        FROM leave_balance
+                        WHERE employee_id = v_employee_id
+                          AND leave_type_id = v_casual_id
+                          AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                        IF v_casual_balance >= v_remaining_days THEN
+                            UPDATE leave_balance
+                            SET balance_days = balance_days - v_remaining_days,
+                                last_updated = SYSDATE
+                            WHERE employee_id = v_employee_id
+                              AND leave_type_id = v_casual_id
+                              AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                            v_remaining_days := 0;
+                        ELSE
+                            UPDATE leave_balance
+                            SET balance_days = 0,
+                                last_updated = SYSDATE
+                            WHERE employee_id = v_employee_id
+                              AND leave_type_id = v_casual_id
+                              AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                            v_remaining_days := v_remaining_days - v_casual_balance;
+                        END IF;
+                    END IF;
+
+                    IF v_sick_id NOT IN (v_leave_type_id, v_casual_id) AND v_remaining_days > 0 THEN
+                        SELECT NVL(balance_days,0) INTO v_sick_balance
+                        FROM leave_balance
+                        WHERE employee_id = v_employee_id
+                          AND leave_type_id = v_sick_id
+                          AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                        IF v_sick_balance >= v_remaining_days THEN
+                            UPDATE leave_balance
+                            SET balance_days = balance_days - v_remaining_days,
+                                last_updated = SYSDATE
+                            WHERE employee_id = v_employee_id
+                              AND leave_type_id = v_sick_id
+                              AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                            v_remaining_days := 0;
+                        ELSE
+                            UPDATE leave_balance
+                            SET balance_days = 0,
+                                last_updated = SYSDATE
+                            WHERE employee_id = v_employee_id
+                              AND leave_type_id = v_sick_id
+                              AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+                            v_remaining_days := v_remaining_days - v_sick_balance;
+                        END IF;
+                    END IF;
+                END IF;
+
+                -- Finally, remaining days become Loss of Pay (LOP)
+                IF v_remaining_days > 0 THEN
+                    BEGIN
+                        SELECT balance_days INTO v_lop_balance
+                        FROM leave_balance
+                        WHERE employee_id = v_employee_id
+                          AND leave_type_id = v_lop_id
+                          AND leave_year = EXTRACT(YEAR FROM v_start_date);
+                    EXCEPTION
+                        WHEN NO_DATA_FOUND THEN
+                            INSERT INTO leave_balance (employee_id, leave_type_id, leave_year, balance_days, last_updated)
+                            VALUES (v_employee_id, v_lop_id, EXTRACT(YEAR FROM v_start_date), 0, SYSDATE);
+
+                            v_lop_balance := 0;
+                    END;
+
+                    UPDATE leave_balance
+                    SET balance_days = balance_days + v_remaining_days,
+                        last_updated = SYSDATE
+                    WHERE employee_id = v_employee_id
+                      AND leave_type_id = v_lop_id
+                      AND leave_year = EXTRACT(YEAR FROM v_start_date);
+                END IF;
+
+            END IF;
+
+        ELSE
+            -- Leave is unpaid, no deduction needed
+            NULL;
         END IF;
-        Ld_date := Ld_date + 1;
-    END LOOP;
 
-    IF UPPER(p_action) = 'APPROVE' THEN
-        -- Check leave balance
-        SELECT Leaves_Balance INTO Ln_balance
-        FROM employee
-        WHERE employee_id = p_employee_id;
-
-        IF Ln_days > Ln_balance THEN
-            RAISE_APPLICATION_ERROR(-20003, 'Not enough leave balance.');
-        END IF;
-
-        -- Update leave status to Approved and record approver
-        UPDATE employee_leaves
+        -- Mark leave application approved
+        UPDATE leave_application
         SET status = 'Approved',
             approved_by = p_approved_by
-        WHERE employee_id = p_employee_id AND start_date = p_start_date;
+        WHERE leave_id = p_leave_id;
 
-        -- Deduct leave days from total balance
-        UPDATE employee
-        SET Leaves_Balance = Leaves_Balance - Ln_days
-        WHERE employee_id = p_employee_id;
-
-        DBMS_OUTPUT.PUT_LINE('Leave approved for  '||P_Employee_id||' and ' || Ln_days || ' working days deducted.');
-
-    ELSIF UPPER(p_action) = 'REJECT' THEN
-        -- Just update status to Rejected
-        UPDATE employee_leaves
+    ELSIF UPPER(p_action) = 'REJECTED' THEN
+        -- Mark leave application rejected
+        UPDATE leave_application
         SET status = 'Rejected',
             approved_by = p_approved_by
-        WHERE employee_id = p_employee_id AND start_date = p_start_date;
-
-        DBMS_OUTPUT.PUT_LINE('Leave rejected for '||P_employee_id);
-
-    ELSE
-        RAISE_APPLICATION_ERROR(-20004, 'Invalid action. Use APPROVE or REJECT.');
+        WHERE leave_id = p_leave_id;
     END IF;
-END;
+
+    -- Raise errors if any
+    IF v_errors IS NOT NULL AND LENGTH(TRIM(v_errors)) > 0 THEN
+        RAISE_APPLICATION_ERROR(-20011, RTRIM(v_errors));
+    END IF;
+
+    COMMIT;
+
+    DBMS_OUTPUT.PUT_LINE('Leave ' || p_action || ' successfully.');
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20012, 'Leave application or manager data not found.');
+    WHEN OTHERS THEN
+        RAISE;
+END process_leave;
+
 
 PROCEDURE mark_in_time (
     p_employee_id IN NUMBER
@@ -787,66 +1218,66 @@ END pkg_emp_ops;
 
 
 
-CREATE OR REPLACE TRIGGER trg_validate_leave
-BEFORE INSERT OR UPDATE ON employee_leaves
-FOR EACH ROW
-DECLARE
-    ln_count   NUMBER;
-    lv_gender VARCHAR2(1);
-BEGIN
-    -- 1. Start date must be before or same as end date
-    IF :NEW.start_date > :NEW.end_date THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Start date must be before or equal to end date.');
-    END IF;
-
-    --  2. Overlap check should run only when:
-    --    a) INSERTING a new leave
-    --    b) UPDATING start_date or end_date
-    IF (:NEW.start_date != :OLD.start_date OR
-        :NEW.end_date   != :OLD.end_date OR
-        INSERTING) THEN
-
-        -- 3. Check if there is any overlapping leave for same employee
-        SELECT COUNT(*) INTO ln_count
-        FROM employee_leaves
-        WHERE employee_id = :NEW.employee_id
-          AND status IN ('Pending', 'Approved')
-          AND (
-              (:NEW.start_date BETWEEN start_date AND end_date)
-              OR (:NEW.end_date BETWEEN start_date AND end_date)
-              OR (start_date BETWEEN :NEW.start_date AND :NEW.end_date)
-              OR (end_date BETWEEN :NEW.start_date AND :NEW.end_date)
-          );
-
-        -- 4. If overlapping leave found, raise error
-        IF ln_count > 0 THEN
-            RAISE_APPLICATION_ERROR(-20002, 'Leave dates overlap with existing approved or pending leave.');
-        END IF;
-        -- 5. Gender-Based Business Rule: Maternity Leave for Female Only
-        IF LOWER(:NEW.leaves_type) = 'maternity' THEN
-            SELECT gender INTO lv_gender
-            FROM employee
-            WHERE employee_id = :NEW.employee_id;
-    
-            IF lv_gender != 'F' THEN
-                RAISE_APPLICATION_ERROR(-20013, 'Maternity leave is only applicable for female employees.');
-            END IF;
-        END IF;
-
-    -- 6. Gender-Based Business Rule: Paternity Leave for Male Only
-    IF LOWER(:NEW.leaves_type) = 'paternity' THEN
-        SELECT gender INTO lv_gender
-        FROM employee
-        WHERE employee_id = :NEW.employee_id;
-
-        IF lv_gender != 'M' THEN
-            RAISE_APPLICATION_ERROR(-20014, 'Paternity leave is only applicable for male employees.');
-        END IF;
-    END IF;
-
-
-    END IF;
-END;
+--CREATE OR REPLACE TRIGGER trg_validate_leave
+--BEFORE INSERT OR UPDATE ON employee_leaves
+--FOR EACH ROW
+--DECLARE
+--    ln_count   NUMBER;
+--    lv_gender VARCHAR2(1);
+--BEGIN
+--    -- 1. Start date must be before or same as end date
+--    IF :NEW.start_date > :NEW.end_date THEN
+--        RAISE_APPLICATION_ERROR(-20001, 'Start date must be before or equal to end date.');
+--    END IF;
+--
+--    --  2. Overlap check should run only when:
+--    --    a) INSERTING a new leave
+--    --    b) UPDATING start_date or end_date
+--    IF (:NEW.start_date != :OLD.start_date OR
+--        :NEW.end_date   != :OLD.end_date OR
+--        INSERTING) THEN
+--
+--        -- 3. Check if there is any overlapping leave for same employee
+--        SELECT COUNT(*) INTO ln_count
+--        FROM employee_leaves
+--        WHERE employee_id = :NEW.employee_id
+--          AND status IN ('Pending', 'Approved')
+--          AND (
+--              (:NEW.start_date BETWEEN start_date AND end_date)
+--              OR (:NEW.end_date BETWEEN start_date AND end_date)
+--              OR (start_date BETWEEN :NEW.start_date AND :NEW.end_date)
+--              OR (end_date BETWEEN :NEW.start_date AND :NEW.end_date)
+--          );
+--
+--        -- 4. If overlapping leave found, raise error
+--        IF ln_count > 0 THEN
+--            RAISE_APPLICATION_ERROR(-20002, 'Leave dates overlap with existing approved or pending leave.');
+--        END IF;
+--        -- 5. Gender-Based Business Rule: Maternity Leave for Female Only
+--        IF LOWER(:NEW.leaves_type) = 'maternity' THEN
+--            SELECT gender INTO lv_gender
+--            FROM employee
+--            WHERE employee_id = :NEW.employee_id;
+--    
+--            IF lv_gender != 'F' THEN
+--                RAISE_APPLICATION_ERROR(-20013, 'Maternity leave is only applicable for female employees.');
+--            END IF;
+--        END IF;
+--
+--    -- 6. Gender-Based Business Rule: Paternity Leave for Male Only
+--    IF LOWER(:NEW.leaves_type) = 'paternity' THEN
+--        SELECT gender INTO lv_gender
+--        FROM employee
+--        WHERE employee_id = :NEW.employee_id;
+--
+--        IF lv_gender != 'M' THEN
+--            RAISE_APPLICATION_ERROR(-20014, 'Paternity leave is only applicable for male employees.');
+--        END IF;
+--    END IF;
+--
+--
+--    END IF;
+--END;
 
 
 CREATE OR REPLACE TRIGGER trg_prevent_duplicate_attendance
@@ -904,5 +1335,110 @@ BEGIN
 --    IF TO_CHAR(:NEW.out_time, 'HH24:MI') > '17:00' THEN
 --        RAISE_APPLICATION_ERROR(-20011, 'Out Time cannot be later than 22:00.');
 --    END IF;
+END;
+/
+
+CREATE OR REPLACE TRIGGER trg_check_leave_type_exists
+BEFORE INSERT ON leave_type_master
+FOR EACH ROW
+DECLARE
+    v_exists NUMBER := 0;
+    v_errors VARCHAR2(4000) := '';  -- collect all errors
+    v_exists_self   NUMBER := 0;
+
+BEGIN
+        SELECT COUNT(*)
+    INTO v_exists_self
+    FROM leave_type_master
+    WHERE UPPER(leave_type) = UPPER(:NEW.leave_type);
+
+    IF v_exists_self > 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20011,
+            'The leave type "' || :NEW.leave_type ||
+            '" already exists. Please use a different name.'
+        );
+    END IF;
+    -- 1. Check if leave_type exists in master_data
+    SELECT COUNT(*)
+    INTO v_exists
+    FROM master_data
+    WHERE UPPER(masterdata_value) = UPPER(:NEW.leave_type)
+      AND masterdata_type = 'LEAVE_TYPE';
+
+    IF v_exists = 0 THEN
+        v_errors := v_errors || 'The leave type "' || :NEW.leave_type ||
+                    '" is not recognized. Please select a valid leave type from the master list. ';
+    END IF;
+
+    -- 2. Validate is_paid
+    IF :NEW.is_paid NOT IN ('Y', 'N') THEN
+        v_errors := v_errors || 'Please specify if the leave is paid ("Y") or unpaid ("N"). ';
+    END IF;
+
+    -- 3. Validate gender_allowed
+    IF :NEW.gender_allowed NOT IN ('All', 'M', 'F') THEN
+        v_errors := v_errors || 'Allowed gender must be "All", "M" (Male), or "F" (Female). ';
+    END IF;
+
+    -- 4. Validate carry_forward
+    IF :NEW.carry_forward IS NOT NULL 
+       AND :NEW.carry_forward NOT IN ('Y', 'N') THEN
+        v_errors := v_errors || 'Carry forward value must be "Y" (Yes) or "N" (No). ';
+    END IF;
+
+    -- 5. Assign defaults for specific leave types
+    IF UPPER(:NEW.leave_type) = 'LOSS OF PAY' THEN
+        :NEW.annual_limit := 0;
+        :NEW.is_paid := 'N';
+        :NEW.carry_forward := 'N';
+    ELSIF UPPER(:NEW.leave_type) = 'PATERNITY' THEN
+        :NEW.annual_limit := 10;
+        :NEW.is_paid := 'Y';
+        :NEW.gender_allowed := 'M';
+        :NEW.carry_forward := 'N';
+    ELSIF UPPER(:NEW.leave_type) = 'MATERNITY' THEN
+        :NEW.annual_limit := 182;
+        :NEW.is_paid := 'Y';
+        :NEW.gender_allowed := 'F';
+        :NEW.carry_forward := 'N';
+    ELSIF UPPER(:NEW.leave_type) = 'CASUAL' THEN
+        :NEW.carry_forward := 'Y';
+    END IF;
+
+    -- 6. Raise all errors together if any
+    IF v_errors IS NOT NULL AND LENGTH(TRIM(v_errors)) > 0 THEN
+        RAISE_APPLICATION_ERROR(-20012, 'Please correct the following before saving: ' || v_errors);
+    END IF;
+END;
+
+
+CREATE OR REPLACE TRIGGER trg_insert_leave_balance
+AFTER INSERT ON employee
+FOR EACH ROW
+DECLARE
+    v_gender candidates.gender%TYPE;
+BEGIN
+    -- Get gender from candidates table
+    SELECT gender INTO v_gender
+    FROM candidates
+    WHERE candidate_id = :NEW.candidate_id;
+
+    -- Insert initial leave balance records
+    INSERT INTO leave_balance (
+        employee_id, 
+        leave_type_id, 
+        balance_days, 
+        leave_year
+    )
+    SELECT 
+        :NEW.employee_id,
+        ltm.leave_type_id,
+        NVL(ltm.annual_limit, 0),   -- Default to 0 if NULL
+        EXTRACT(YEAR FROM SYSDATE)
+    FROM leave_type_master ltm
+    WHERE 
+        ltm.gender_allowed = 'All'
+        OR UPPER(ltm.gender_allowed) = UPPER(v_gender);
 END;
 /

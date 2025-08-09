@@ -86,7 +86,25 @@ INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, paren
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (84, 'PERFORMANCE_RATING', '3', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (85, 'PERFORMANCE_RATING', '4', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (86, 'PERFORMANCE_RATING', '5', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
+VALUES (87, 'LEAVE_TYPE', 'Sick', NULL);
 
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
+VALUES (88, 'LEAVE_TYPE', 'Casual', NULL);
+
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
+VALUES (89, 'LEAVE_TYPE', 'Maternity', NULL);
+
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
+VALUES (90, 'LEAVE_TYPE', 'Paternity', NULL);
+
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
+VALUES (91, 'LEAVE_TYPE', 'Bereavement', NULL);
+
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
+VALUES (92, 'LEAVE_TYPE', 'Loss of Pay', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
+VALUES (93, 'LEAVE_TYPE', 'Bereavement ', NULL);
 
 
 
@@ -293,8 +311,37 @@ EXECUTE source_requirement.promote_candidate_to_employee(51, 1, 500000);
 EXECUTE source_requirement.promote_candidate_to_employee(52, 6, 700000); 
 EXECUTE source_requirement.promote_candidate_to_employee(53, 3, 550000);  
 EXECUTE source_requirement.promote_candidate_to_employee(54, 3, 900000); 
-
+EXECUTE source_requirement.promote_candidate_to_employee(54, 3, 900000); 
+set serveroutput on;
 SELECT * FROM Employee;
 --TRUNCATE TABLE candidates;
 --TRUNCATE TABLE Employee;
 --TRUNCATE TABLE Department;
+select * from candidates;
+delete from employee where employee_id=1102;
+
+
+-- Casual Leave (paid, allowed for all, carry forward allowed)
+INSERT INTO leave_type_master (leave_type_id, leave_type, is_paid, gender_allowed, annual_limit, carry_forward)
+VALUES (1, 'Casual', 'Y', 'All', 12, 'Y');
+
+-- Sick Leave (paid, allowed for all, carry forward not allowed)
+INSERT INTO leave_type_master (leave_type_id, leave_type, is_paid, gender_allowed, annual_limit, carry_forward)
+VALUES (2, 'Sick', 'Y', 'All', 10, 'N');
+
+-- Maternity Leave (paid, allowed for females, no annual limit, no carry forward)
+INSERT INTO leave_type_master (leave_type_id, leave_type, is_paid, gender_allowed, annual_limit, carry_forward)
+VALUES (3, 'Maternity', 'Y', 'F', 182, 'N');
+
+-- Paternity Leave (paid, allowed for males, no annual limit, no carry forward)
+INSERT INTO leave_type_master (leave_type_id, leave_type, is_paid, gender_allowed, annual_limit, carry_forward)
+VALUES (4, 'Paternity', 'Y', 'M', 15, 'N');
+
+-- Loss of Pay Leave (unpaid, allowed for all, no annual limit, no carry forward)
+INSERT INTO leave_type_master (leave_type_id, leave_type, is_paid, gender_allowed, annual_limit, carry_forward)
+VALUES (5, 'Loss of Pay', 'N', 'All', 0, 'N');
+
+INSERT INTO leave_type_master (leave_type_id, leave_type, is_paid, gender_allowed, annual_limit, carry_forward)
+VALUES (6, 'Bereavement ', 'Y', 'All', 3, 'N');
+
+
