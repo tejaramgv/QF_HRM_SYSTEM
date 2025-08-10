@@ -384,7 +384,7 @@ BEGIN
             WHERE d.department_id = p_department_id;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('❌ Provided department ID ' || p_department_id || ' not found in master data.');
+                DBMS_OUTPUT.PUT_LINE('❌ Provided department ID ' || p_department_id || ' not found.');
                 RETURN;
         END;
 
@@ -396,7 +396,7 @@ BEGIN
               AND UPPER(masterdata_value) = UPPER(v_existing_role);
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('❌ Current role "' || INITCAP(v_existing_role) || '" not found in master data.');
+                DBMS_OUTPUT.PUT_LINE('❌ Current role "' || INITCAP(v_existing_role) || '" not found.');
                 RETURN;
         END;
 
@@ -1178,7 +1178,7 @@ EXCEPTION
     WHEN OTHERS THEN
         RAISE;
 END apply_leave;
-/
+
 
 
 PROCEDURE process_leave (
@@ -1240,7 +1240,7 @@ BEGIN
         v_errors := v_errors || 'Action must be "Approved" or "Rejected". ';
     END IF;
 
-    -- Step 3: Confirm that the person approving is the employee�s manager
+    -- Step 3: Confirm that the person approving is the employee�s manager
     SELECT manager_id
     INTO v_manager_id
     FROM employee
@@ -1273,7 +1273,7 @@ BEGIN
     -- Step 7: If approving, check leave balances and adjust accordingly
     IF UPPER(p_action) = 'APPROVED' THEN
 
-        -- Get the employee�s balance and whether leave is paid for the requested leave type
+        -- Get the employee�s balance and whether leave is paid for the requested leave type
         BEGIN
             SELECT NVL(lb.balance_days,0), ltm.is_paid
             INTO v_balance, v_leave_paid
@@ -1642,7 +1642,6 @@ END pkg_emp_ops;
 
 
 
-<<<<<<< HEAD
 
 --CREATE OR REPLACE TRIGGER trg_validate_leave
 --BEFORE INSERT OR UPDATE ON employee_leaves
@@ -1704,7 +1703,7 @@ END pkg_emp_ops;
 --
 --    END IF;
 --END;
-=======
+
 CREATE OR REPLACE TRIGGER trg_validate_leave
 BEFORE INSERT OR UPDATE ON employee_leaves
 FOR EACH ROW
@@ -1765,7 +1764,6 @@ BEGIN
 
     END IF;
 END;
->>>>>>> e69583a65d15c5f3f9b26d6347544f20e28b0014
 
 
 CREATE OR REPLACE TRIGGER trg_prevent_duplicate_attendance
