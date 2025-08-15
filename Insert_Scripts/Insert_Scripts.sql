@@ -105,6 +105,11 @@ INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, paren
 VALUES (92, 'LEAVE_TYPE', 'Loss of Pay', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
 VALUES (93, 'LEAVE_TYPE', 'Bereavement ', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
+VALUES (94, 'JOB_TITLE', 'CEO', NULL);  -- CEO doesn’t belong under any department
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (95, 'DEPARTMENT', 'Executive Management', NULL);
+
+select * from master_data;
 
 -- Software Engineer -> Engineering
 UPDATE master_data
@@ -172,6 +177,9 @@ INSERT INTO department (department_id, department_name, city_id, manager_id) VAL
 INSERT INTO department (department_id, department_name, city_id, manager_id) VALUES (8, 'IT Support', 18, NULL); -- Toronto
 INSERT INTO department (department_id, department_name, city_id, manager_id) VALUES (9, 'Research and development', 19, NULL); -- Melbourne
 INSERT INTO department (department_id, department_name, city_id, manager_id) VALUES (10, 'Procurement', 20, NULL); -- Dubai
+INSERT INTO department (department_id, department_name, city_id, manager_id)
+VALUES (11, 'Executive Management', 11, NULL);
+
 
 select * from department;
 --insert base line salary
@@ -362,6 +370,7 @@ EXECUTE source_requirement.promote_candidate_to_employee(52, 6, 700000);
 EXECUTE source_requirement.promote_candidate_to_employee(53, 3, 550000);  
 EXECUTE source_requirement.promote_candidate_to_employee(54, 3, 900000); 
 EXECUTE source_requirement.promote_candidate_to_employee(54, 3, 900000); 
+
 set serveroutput on;
 SELECT * FROM Employee;
 --TRUNCATE TABLE candidates;
