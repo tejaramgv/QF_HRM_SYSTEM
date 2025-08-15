@@ -384,7 +384,11 @@ BEGIN
             WHERE d.department_id = p_department_id;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
+<<<<<<< HEAD
                 DBMS_OUTPUT.PUT_LINE('â?Œ Provided department ID ' || p_department_id || ' not found in master data.');
+=======
+                DBMS_OUTPUT.PUT_LINE('âŒ Provided department ID ' || p_department_id || ' not found.');
+>>>>>>> f4e1edd93ab1357925e76b5f9b2e2e11360bfcd7
                 RETURN;
         END;
 
@@ -396,7 +400,11 @@ BEGIN
               AND UPPER(masterdata_value) = UPPER(v_existing_role);
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
+<<<<<<< HEAD
                 DBMS_OUTPUT.PUT_LINE('â?Œ Current role "' || INITCAP(v_existing_role) || '" not found in master data.');
+=======
+                DBMS_OUTPUT.PUT_LINE('âŒ Current role "' || INITCAP(v_existing_role) || '" not found.');
+>>>>>>> f4e1edd93ab1357925e76b5f9b2e2e11360bfcd7
                 RETURN;
         END;
 
@@ -1369,6 +1377,10 @@ BEGIN
 
     DBMS_OUTPUT.PUT_LINE('Your leave request has been submitted successfully. It is now pending approval.');
 END apply_leave;
+<<<<<<< HEAD
+=======
+
+>>>>>>> f4e1edd93ab1357925e76b5f9b2e2e11360bfcd7
 
 
 
@@ -1739,11 +1751,57 @@ IS
         RETURN end_date - start_date + 1;
     END;
 
+<<<<<<< HEAD
     -- Deduct leave with fallback
     PROCEDURE deduct_leave(p_type IN NUMBER, p_days IN NUMBER) IS
         v_balance_type NUMBER := 0;
         v_days_left    NUMBER := p_days;
     BEGIN
+=======
+    IF v_status != 'Pending' THEN
+        v_errors := v_errors || 'This leave has already been processed. ';
+    END IF;
+
+    -- Step 2: Make sure the action is either "Approved" or "Rejected"
+    IF UPPER(p_action) NOT IN ('APPROVED', 'REJECTED') THEN
+        v_errors := v_errors || 'Action must be "Approved" or "Rejected". ';
+    END IF;
+
+    -- Step 3: Confirm that the person approving is the employeeï¿½s manager
+    SELECT manager_id
+    INTO v_manager_id
+    FROM employee
+    WHERE employee_id = v_employee_id;
+
+    IF v_manager_id IS NULL THEN
+        v_errors := v_errors || 'This employee has no manager assigned. ';
+    ELSIF v_manager_id != p_approved_by THEN
+        v_errors := v_errors || 'You are not authorized to approve this leave. ';
+    END IF;
+
+    -- Step 4: If approving, calculate number of working days (weekdays only) in leave
+    IF UPPER(p_action) = 'APPROVED' THEN
+        v_days := count_weekdays(v_start_date, v_end_date);
+        IF v_days <= 0 THEN
+            v_errors := v_errors || 'Leave must be for at least 1 working day. ';
+        END IF;
+    END IF;
+
+    -- Step 5: Cannot approve leave starting in the past
+    IF UPPER(p_action) = 'APPROVED' AND v_start_date < TRUNC(SYSDATE) THEN
+        v_errors := v_errors || 'Leave cannot start in the past. ';
+    END IF;
+
+    -- Step 6: Find leave type IDs for Casual, Sick, and Loss of Pay
+    SELECT leave_type_id INTO v_casual_id FROM leave_type_master WHERE UPPER(leave_type) = 'CASUAL';
+    SELECT leave_type_id INTO v_sick_id FROM leave_type_master WHERE UPPER(leave_type) = 'SICK';
+    SELECT leave_type_id INTO v_lop_id FROM leave_type_master WHERE UPPER(leave_type) = 'LOSS OF PAY';
+
+    -- Step 7: If approving, check leave balances and adjust accordingly
+    IF UPPER(p_action) = 'APPROVED' THEN
+
+        -- Get the employeeï¿½s balance and whether leave is paid for the requested leave type
+>>>>>>> f4e1edd93ab1357925e76b5f9b2e2e11360bfcd7
         BEGIN
             SELECT NVL(balance_days,0)
             INTO v_balance_type
@@ -2056,68 +2114,10 @@ END pkg_emp_ops;
 
 
 
+<<<<<<< HEAD
 
-
---CREATE OR REPLACE TRIGGER trg_validate_leave
---BEFORE INSERT OR UPDATE ON employee_leaves
---FOR EACH ROW
---DECLARE
---    ln_count   NUMBER;
---    lv_gender VARCHAR2(1);
---BEGIN
---    -- 1. Start date must be before or same as end date
---    IF :NEW.start_date > :NEW.end_date THEN
---        RAISE_APPLICATION_ERROR(-20001, 'Start date must be before or equal to end date.');
---    END IF;
---
---    --  2. Overlap check should run only when:
---    --    a) INSERTING a new leave
---    --    b) UPDATING start_date or end_date
---    IF (:NEW.start_date != :OLD.start_date OR
---        :NEW.end_date   != :OLD.end_date OR
---        INSERTING) THEN
---
---        -- 3. Check if there is any overlapping leave for same employee
---        SELECT COUNT(*) INTO ln_count
---        FROM employee_leaves
---        WHERE employee_id = :NEW.employee_id
---          AND status IN ('Pending', 'Approved')
---          AND (
---              (:NEW.start_date BETWEEN start_date AND end_date)
---              OR (:NEW.end_date BETWEEN start_date AND end_date)
---              OR (start_date BETWEEN :NEW.start_date AND :NEW.end_date)
---              OR (end_date BETWEEN :NEW.start_date AND :NEW.end_date)
---          );
---
---        -- 4. If overlapping leave found, raise error
---        IF ln_count > 0 THEN
---            RAISE_APPLICATION_ERROR(-20002, 'Leave dates overlap with existing approved or pending leave.');
---        END IF;
---        -- 5. Gender-Based Business Rule: Maternity Leave for Female Only
---        IF LOWER(:NEW.leaves_type) = 'maternity' THEN
---            SELECT gender INTO lv_gender
---            FROM employee
---            WHERE employee_id = :NEW.employee_id;
---    
---            IF lv_gender != 'F' THEN
---                RAISE_APPLICATION_ERROR(-20013, 'Maternity leave is only applicable for female employees.');
---            END IF;
---        END IF;
---
---    -- 6. Gender-Based Business Rule: Paternity Leave for Male Only
---    IF LOWER(:NEW.leaves_type) = 'paternity' THEN
---        SELECT gender INTO lv_gender
---        FROM employee
---        WHERE employee_id = :NEW.employee_id;
---
---        IF lv_gender != 'M' THEN
---            RAISE_APPLICATION_ERROR(-20014, 'Paternity leave is only applicable for male employees.');
---        END IF;
---    END IF;
---
---
---    END IF;
---END;
+=======
+>>>>>>> f4e1edd93ab1357925e76b5f9b2e2e11360bfcd7
 
 --CREATE OR REPLACE TRIGGER trg_validate_leave
 --BEFORE INSERT OR UPDATE ON employee_leaves
@@ -2179,6 +2179,131 @@ END pkg_emp_ops;
 --
 --    END IF;
 --END;
+<<<<<<< HEAD
+
+--CREATE OR REPLACE TRIGGER trg_validate_leave
+--BEFORE INSERT OR UPDATE ON employee_leaves
+--FOR EACH ROW
+--DECLARE
+--    ln_count   NUMBER;
+--    lv_gender VARCHAR2(1);
+--BEGIN
+--    -- 1. Start date must be before or same as end date
+--    IF :NEW.start_date > :NEW.end_date THEN
+--        RAISE_APPLICATION_ERROR(-20001, 'Start date must be before or equal to end date.');
+--    END IF;
+--
+--    --  2. Overlap check should run only when:
+--    --    a) INSERTING a new leave
+--    --    b) UPDATING start_date or end_date
+--    IF (:NEW.start_date != :OLD.start_date OR
+--        :NEW.end_date   != :OLD.end_date OR
+--        INSERTING) THEN
+--
+--        -- 3. Check if there is any overlapping leave for same employee
+--        SELECT COUNT(*) INTO ln_count
+--        FROM employee_leaves
+--        WHERE employee_id = :NEW.employee_id
+--          AND status IN ('Pending', 'Approved')
+--          AND (
+--              (:NEW.start_date BETWEEN start_date AND end_date)
+--              OR (:NEW.end_date BETWEEN start_date AND end_date)
+--              OR (start_date BETWEEN :NEW.start_date AND :NEW.end_date)
+--              OR (end_date BETWEEN :NEW.start_date AND :NEW.end_date)
+--          );
+--
+--        -- 4. If overlapping leave found, raise error
+--        IF ln_count > 0 THEN
+--            RAISE_APPLICATION_ERROR(-20002, 'Leave dates overlap with existing approved or pending leave.');
+--        END IF;
+--        -- 5. Gender-Based Business Rule: Maternity Leave for Female Only
+--        IF LOWER(:NEW.leaves_type) = 'maternity' THEN
+--            SELECT gender INTO lv_gender
+--            FROM employee
+--            WHERE employee_id = :NEW.employee_id;
+--    
+--            IF lv_gender != 'F' THEN
+--                RAISE_APPLICATION_ERROR(-20013, 'Maternity leave is only applicable for female employees.');
+--            END IF;
+--        END IF;
+--
+--    -- 6. Gender-Based Business Rule: Paternity Leave for Male Only
+--    IF LOWER(:NEW.leaves_type) = 'paternity' THEN
+--        SELECT gender INTO lv_gender
+--        FROM employee
+--        WHERE employee_id = :NEW.employee_id;
+--
+--        IF lv_gender != 'M' THEN
+--            RAISE_APPLICATION_ERROR(-20014, 'Paternity leave is only applicable for male employees.');
+--        END IF;
+--    END IF;
+--
+--
+--    END IF;
+--END;
+=======
+
+CREATE OR REPLACE TRIGGER trg_validate_leave
+BEFORE INSERT OR UPDATE ON employee_leaves
+FOR EACH ROW
+DECLARE
+    ln_count   NUMBER;
+    lv_gender VARCHAR2(1);
+BEGIN
+    -- 1. Start date must be before or same as end date
+    IF :NEW.start_date > :NEW.end_date THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Start date must be before or equal to end date.');
+    END IF;
+
+    --  2. Overlap check should run only when:
+    --    a) INSERTING a new leave
+    --    b) UPDATING start_date or end_date
+    IF (:NEW.start_date != :OLD.start_date OR
+        :NEW.end_date   != :OLD.end_date OR
+        INSERTING) THEN
+
+        -- 3. Check if there is any overlapping leave for same employee
+        SELECT COUNT(*) INTO ln_count
+        FROM employee_leaves
+        WHERE employee_id = :NEW.employee_id
+          AND status IN ('Pending', 'Approved')
+          AND (
+              (:NEW.start_date BETWEEN start_date AND end_date)
+              OR (:NEW.end_date BETWEEN start_date AND end_date)
+              OR (start_date BETWEEN :NEW.start_date AND :NEW.end_date)
+              OR (end_date BETWEEN :NEW.start_date AND :NEW.end_date)
+          );
+
+        -- 4. If overlapping leave found, raise error
+        IF ln_count > 0 THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Leave dates overlap with existing approved or pending leave.');
+        END IF;
+        -- 5. Gender-Based Business Rule: Maternity Leave for Female Only
+        IF LOWER(:NEW.leaves_type) = 'maternity' THEN
+            SELECT gender INTO lv_gender
+            FROM employee
+            WHERE employee_id = :NEW.employee_id;
+    
+            IF lv_gender != 'F' THEN
+                RAISE_APPLICATION_ERROR(-20013, 'Maternity leave is only applicable for female employees.');
+            END IF;
+        END IF;
+
+    -- 6. Gender-Based Business Rule: Paternity Leave for Male Only
+    IF LOWER(:NEW.leaves_type) = 'paternity' THEN
+        SELECT gender INTO lv_gender
+        FROM employee
+        WHERE employee_id = :NEW.employee_id;
+
+        IF lv_gender != 'M' THEN
+            RAISE_APPLICATION_ERROR(-20014, 'Paternity leave is only applicable for male employees.');
+        END IF;
+    END IF;
+
+
+    END IF;
+END;
+>>>>>>> f4e1edd93ab1357925e76b5f9b2e2e11360bfcd7
 
 
 CREATE OR REPLACE TRIGGER trg_prevent_duplicate_attendance

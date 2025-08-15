@@ -403,4 +403,4 @@ VALUES (5, 'Loss of Pay', 'N', 'All', 0, 'N');
 INSERT INTO leave_type_master (leave_type_id, leave_type, is_paid, gender_allowed, annual_limit, carry_forward)
 VALUES (6, 'Bereavement ', 'Y', 'All', 3, 'N');
 
-
+select * from leave_type_master;
