@@ -366,7 +366,7 @@ WHERE LOWER(interview_status) = 'rejected'
 EXEC pkg_emp_ops.update_department(p_department_id=>3,p_manager_id=>1035);
 set serveroutput on;
 -- All employees
-EXEC pkg_emp_ops.list_employees(p_country_id=>1);
+EXEC pkg_emp_ops.list_employees(p_gender=>'m');
 set serveroutput on;
 --get emp details
 EXEC pkg_emp_ops.get_employee_details(1035); 

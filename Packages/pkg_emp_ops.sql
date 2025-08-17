@@ -10,15 +10,20 @@ NOCACHE;
 
 
 CREATE OR REPLACE PACKAGE pkg_emp_ops AS
-    PROCEDURE list_employees (
-        p_department_id   IN NUMBER DEFAULT NULL,
-        p_role            IN VARCHAR2 DEFAULT NULL,
-        p_status          IN VARCHAR2 DEFAULT NULL,
-        p_band_id         IN NUMBER DEFAULT NULL,
-        p_city_id         IN NUMBER DEFAULT NULL,
-        p_country_id      IN NUMBER DEFAULT NULL,
-        p_manager_id      IN NUMBER DEFAULT NULL
-    );
+PROCEDURE list_employees (
+    p_department_name  IN VARCHAR2 DEFAULT NULL,
+    p_role             IN VARCHAR2 DEFAULT NULL,
+    p_status           IN VARCHAR2 DEFAULT NULL,
+    p_band_name        IN VARCHAR2 DEFAULT NULL,
+    p_city_name        IN VARCHAR2 DEFAULT NULL,
+    p_country_name     IN VARCHAR2 DEFAULT NULL,
+    p_manager_name     IN VARCHAR2 DEFAULT NULL,
+    p_first_name       IN VARCHAR2 DEFAULT NULL,
+    p_last_name        IN VARCHAR2 DEFAULT NULL,
+    p_gender           IN VARCHAR2 DEFAULT NULL,
+    p_base_experience  IN NUMBER   DEFAULT NULL,  -- years_of_experience from candidates
+    p_total_experience IN NUMBER   DEFAULT NULL   -- base + since joining
+);
     
     PROCEDURE get_employee_details (
     p_employee_id IN NUMBER
@@ -98,65 +103,156 @@ END pkg_emp_ops;
 
 
 CREATE OR REPLACE PACKAGE BODY pkg_emp_ops AS
- PROCEDURE list_employees (
-    p_department_id   IN NUMBER DEFAULT NULL,
-    p_role            IN VARCHAR2 DEFAULT NULL,
-    p_status          IN VARCHAR2 DEFAULT NULL,
-    p_band_id         IN NUMBER DEFAULT NULL,
-    p_city_id         IN NUMBER DEFAULT NULL,
-    p_country_id      IN NUMBER DEFAULT NULL,
-    p_manager_id      IN NUMBER DEFAULT NULL
+-- PROCEDURE list_employees (
+--    p_department_id   IN NUMBER DEFAULT NULL,
+--    p_role            IN VARCHAR2 DEFAULT NULL,
+--    p_status          IN VARCHAR2 DEFAULT NULL,
+--    p_band_id         IN NUMBER DEFAULT NULL,
+--    p_city_id         IN NUMBER DEFAULT NULL,
+--    p_country_id      IN NUMBER DEFAULT NULL,
+--    p_manager_id      IN NUMBER DEFAULT NULL
+--) IS
+--    v_found BOOLEAN := FALSE;
+--BEGIN
+--    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------');
+--    DBMS_OUTPUT.PUT_LINE(' EMP_ID | CAND_ID |   NAME    | ROLE               | BAND  | STATUS   | EXP_YEARS | SALARY   | DEPT_ID | MANAGER_ID | COUNTRY  | CITY |' );
+--    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------');
+--
+--    FOR emp_rec IN (
+--        SELECT 
+--            e.employee_id,
+--            e.candidate_id,
+--            INITCAP(c.first_name || ' ' || c.last_name) AS full_name,
+--            e.role,
+--            b.band,
+--            e.employee_status,
+--            ROUND(c.years_of_experience + MONTHS_BETWEEN(SYSDATE, e.date_of_joining)/12, 1) AS total_exp,
+--            e.salary,
+--            e.department_id,
+--            e.manager_id,
+--            city_md.masterdata_value as city,
+--            country_md.masterdata_value as country
+--        FROM employee e
+--        JOIN candidates c ON e.candidate_id = c.candidate_id
+--        LEFT JOIN baseline_salary b ON b.band_id = e.band_id
+--        JOIN department d ON d.department_id = e.department_id
+--        JOIN master_data city_md ON d.city_id = city_md.masterdata_id
+--        LEFT JOIN master_data country_md ON city_md.parent_id = country_md.masterdata_id
+--        WHERE (p_department_id IS NULL OR e.department_id = p_department_id)
+--          AND (p_role IS NULL OR e.role = p_role)
+--          AND (p_status IS NULL OR e.employee_status = p_status)
+--          AND (p_band_id IS NULL OR e.band_id = p_band_id)
+--          AND (p_manager_id IS NULL OR e.manager_id = p_manager_id)
+--          AND (p_city_id IS NULL OR d.city_id = p_city_id)
+--          AND (p_country_id IS NULL OR city_md.parent_id = p_country_id)
+--          AND e.employee_status='Active'
+--        ORDER BY e.employee_id
+--    ) LOOP
+--        v_found := TRUE;
+--        DBMS_OUTPUT.PUT_LINE(
+--            RPAD(emp_rec.employee_id, 8) || '|' ||
+--            RPAD(emp_rec.candidate_id, 9) || '|' ||
+--            RPAD(emp_rec.full_name, 11) || '|' ||
+--            RPAD(emp_rec.role, 20) || '|' ||
+--            RPAD(NVL(emp_rec.band, '-'), 7) || '|' ||
+--            RPAD(emp_rec.employee_status, 11) || '|' ||
+--            RPAD(emp_rec.total_exp, 10) || '|' ||
+--            RPAD(emp_rec.salary, 10) || '|' ||
+--            RPAD(emp_rec.department_id, 9) || '|' ||
+--            RPAD(nvl(to_char(emp_rec.manager_id),'-'), 12) || '|' ||
+--            RPAD(emp_rec.country, 10) || '|' ||
+--            RPAD(emp_rec.city, 9)
+--        );
+--    END LOOP;
+--
+--    IF NOT v_found THEN
+--        DBMS_OUTPUT.PUT_LINE(' No employees found with the specified criteria.');
+--    END IF;
+--
+--EXCEPTION
+--    WHEN OTHERS THEN
+--        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+--END;
+PROCEDURE list_employees (
+    p_department_name  IN VARCHAR2 DEFAULT NULL,
+    p_role             IN VARCHAR2 DEFAULT NULL,
+    p_status           IN VARCHAR2 DEFAULT NULL,
+    p_band_name        IN VARCHAR2 DEFAULT NULL,
+    p_city_name        IN VARCHAR2 DEFAULT NULL,
+    p_country_name     IN VARCHAR2 DEFAULT NULL,
+    p_manager_name     IN VARCHAR2 DEFAULT NULL,
+    p_first_name       IN VARCHAR2 DEFAULT NULL,
+    p_last_name        IN VARCHAR2 DEFAULT NULL,
+    p_gender           IN VARCHAR2 DEFAULT NULL,
+    p_base_experience  IN NUMBER   DEFAULT NULL,  -- years_of_experience from candidates
+    p_total_experience IN NUMBER   DEFAULT NULL   -- base + since joining
 ) IS
     v_found BOOLEAN := FALSE;
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------');
-    DBMS_OUTPUT.PUT_LINE(' EMP_ID | CAND_ID |   NAME    | ROLE               | BAND  | STATUS   | EXP_YEARS | SALARY   | DEPT_ID | MANAGER_ID | COUNTRY  | CITY |' );
-    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE(' EMP_ID | CAND_ID | FIRST_NAME | LAST_NAME  | FULL_NAME     | GENDER | ROLE              | BAND  | STATUS   | BASE_EXP | TOTAL_EXP     | SALARY   | DEPARTMENT      | MANAGER         | COUNTRY     | CITY      |');
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------');
 
     FOR emp_rec IN (
         SELECT 
             e.employee_id,
             e.candidate_id,
+            INITCAP(c.first_name) AS first_name,
+            INITCAP(c.last_name) AS last_name,
             INITCAP(c.first_name || ' ' || c.last_name) AS full_name,
+            INITCAP(c.gender) AS gender,
             e.role,
-            b.band,
+            NVL(b.band, '-') AS band,
             e.employee_status,
+            c.years_of_experience AS base_experience,
             ROUND(c.years_of_experience + MONTHS_BETWEEN(SYSDATE, e.date_of_joining)/12, 1) AS total_exp,
             e.salary,
-            e.department_id,
-            e.manager_id,
-            city_md.masterdata_value as city,
-            country_md.masterdata_value as country
+            d.department_name,
+            NVL(mgr.first_name || ' ' || mgr.last_name, '-') AS manager_name,
+            country_md.masterdata_value AS country,
+            city_md.masterdata_value AS city
         FROM employee e
         JOIN candidates c ON e.candidate_id = c.candidate_id
         LEFT JOIN baseline_salary b ON b.band_id = e.band_id
         JOIN department d ON d.department_id = e.department_id
         JOIN master_data city_md ON d.city_id = city_md.masterdata_id
         LEFT JOIN master_data country_md ON city_md.parent_id = country_md.masterdata_id
-        WHERE (p_department_id IS NULL OR e.department_id = p_department_id)
-          AND (p_role IS NULL OR e.role = p_role)
-          AND (p_status IS NULL OR e.employee_status = p_status)
-          AND (p_band_id IS NULL OR e.band_id = p_band_id)
-          AND (p_manager_id IS NULL OR e.manager_id = p_manager_id)
-          AND (p_city_id IS NULL OR d.city_id = p_city_id)
-          AND (p_country_id IS NULL OR city_md.parent_id = p_country_id)
-          AND e.employee_status='Active'
+        LEFT JOIN employee mgr_e ON e.manager_id = mgr_e.employee_id
+        LEFT JOIN candidates mgr ON mgr_e.candidate_id = mgr.candidate_id
+        WHERE (p_department_name IS NULL OR UPPER(d.department_name) = UPPER(p_department_name))
+          AND (p_role IS NULL OR UPPER(e.role) = UPPER(p_role))
+          AND (p_status IS NULL OR UPPER(e.employee_status) = UPPER(p_status))
+          AND (p_band_name IS NULL OR UPPER(b.band) = UPPER(p_band_name))
+          AND (p_manager_name IS NULL OR UPPER(mgr.first_name || ' ' || mgr.last_name) = UPPER(p_manager_name))
+          AND (p_city_name IS NULL OR UPPER(city_md.masterdata_value) = UPPER(p_city_name))
+          AND (p_country_name IS NULL OR UPPER(country_md.masterdata_value) = UPPER(p_country_name))
+          AND (p_first_name IS NULL OR UPPER(c.first_name) = UPPER(p_first_name))
+          AND (p_last_name IS NULL OR UPPER(c.last_name) = UPPER(p_last_name))
+          AND (p_gender IS NULL OR UPPER(c.gender) = UPPER(p_gender))
+          AND (p_base_experience IS NULL OR c.years_of_experience >= p_base_experience)
+          AND (p_total_experience IS NULL OR 
+               ROUND(c.years_of_experience + MONTHS_BETWEEN(SYSDATE, e.date_of_joining)/12, 1) >= p_total_experience)
+          AND e.employee_status = 'Active'
         ORDER BY e.employee_id
     ) LOOP
         v_found := TRUE;
         DBMS_OUTPUT.PUT_LINE(
             RPAD(emp_rec.employee_id, 8) || '|' ||
             RPAD(emp_rec.candidate_id, 9) || '|' ||
-            RPAD(emp_rec.full_name, 11) || '|' ||
+            RPAD(emp_rec.first_name, 12) || '|' ||
+            RPAD(emp_rec.last_name, 13) || '|' ||
+            RPAD(emp_rec.full_name, 14) || '|' ||
+            RPAD(emp_rec.gender, 8) || '|' ||
             RPAD(emp_rec.role, 20) || '|' ||
-            RPAD(NVL(emp_rec.band, '-'), 7) || '|' ||
-            RPAD(emp_rec.employee_status, 11) || '|' ||
-            RPAD(emp_rec.total_exp, 10) || '|' ||
-            RPAD(emp_rec.salary, 10) || '|' ||
-            RPAD(emp_rec.department_id, 9) || '|' ||
-            RPAD(nvl(to_char(emp_rec.manager_id),'-'), 12) || '|' ||
-            RPAD(emp_rec.country, 10) || '|' ||
-            RPAD(emp_rec.city, 9)
+            RPAD(emp_rec.band, 7) || '|' ||
+            RPAD(emp_rec.employee_status, 9) || '|' ||
+            RPAD(emp_rec.base_experience, 10) || '|' ||
+            RPAD(emp_rec.total_exp, 16) || '|' ||
+            RPAD(emp_rec.salary, 11) || '|' ||
+            RPAD(emp_rec.department_name, 16) || '|' ||
+            RPAD(emp_rec.manager_name, 15) || '|' ||
+            RPAD(emp_rec.country, 14) || '|' ||
+            RPAD(emp_rec.city, 10)
         );
     END LOOP;
 
@@ -908,9 +1004,9 @@ BEGIN
                 v_city_name := 'Unknown';
         END;
 
-        DBMS_OUTPUT.PUT_LINE('✅ Department updated:');
-        DBMS_OUTPUT.PUT_LINE('   ➤ Name : ' || v_new_name);
-        DBMS_OUTPUT.PUT_LINE('   ➤ City : ' || v_city_name);
+        DBMS_OUTPUT.PUT_LINE('Department updated:');
+        DBMS_OUTPUT.PUT_LINE('    Name : ' || v_new_name);
+        DBMS_OUTPUT.PUT_LINE('    City : ' || v_city_name);
     END IF;
 
     -- Step 4: Update manager assignment
