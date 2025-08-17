@@ -1,4 +1,3 @@
-hat -- Master Data Table
 CREATE TABLE master_data (
     masterdata_id     NUMBER PRIMARY KEY,
     parent_id         NUMBER,
@@ -15,10 +14,10 @@ CREATE TABLE candidates (
     candidate_id        NUMBER PRIMARY KEY,
     first_name          VARCHAR2(50) NOT NULL,
     last_name           VARCHAR2(50) NOT NULL,
-    email               VARCHAR2(100) UNIQUE NOT NULL,
+    email               VARCHAR2(100)  NOT NULL,
     phone               NUMBER(10) NOT NULL,
     dob                 DATE NOT NULL,
-    id_proof_type       VARCHAR2(30) CHECK (id_proof_type IN ('Passport', 'Aadhar', 'DL')),
+    id_proof_type       VARCHAR2(30),
     id_proof_num        VARCHAR2(100),
     highest_degree      VARCHAR2(30) NOT NULL,
     university          VARCHAR2(50) NOT NULL,
@@ -30,19 +29,17 @@ CREATE TABLE candidates (
     expected_salary     NUMBER,
     years_of_experience NUMBER DEFAULT 0,
     skills              VARCHAR2(80) NOT NULL,
-    interview_status    VARCHAR2(30) CHECK (interview_status IN ('Rejected', 'In Progress', 'Selected')),
+    interview_status    VARCHAR2(30) ,
     rejection_reason    VARCHAR2(200),
-    status              VARCHAR2(15) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive'))
+    status              VARCHAR2(15) DEFAULT 'Active' 
 );
 
 -- Employees Table
 CREATE TABLE employee (
     employee_id      NUMBER PRIMARY KEY,
     candidate_id     NUMBER REFERENCES candidates(candidate_id) NOT NULL,
-    first_name       VARCHAR2(30) NOT NULL,
-    last_name        VARCHAR2(30) NOT NULL,
-    salary           NUMBER NOT NULL,
-    department_id    NUMBER REFERENCES department(department_id),
+    salary           NUMBER ,
+    department_id    NUMBER,
     date_of_joining  DATE,
     band_id          NUMBER,
     manager_id       NUMBER,
@@ -52,11 +49,6 @@ CREATE TABLE employee (
     leaves_balance   NUMBER DEFAULT 24
 );
 
-SELECT constraint_name
-FROM user_constraints
-WHERE table_name = 'EMPLOYEE'
-  AND constraint_type = 'R'
-;
 
 ALTER TABLE employee
 ADD CONSTRAINT fk_emp_department
@@ -69,10 +61,9 @@ WHERE constraint_name = 'SYS_C008541';
 
 ALTER TABLE employee
 DROP CONSTRAINT SYS_C008541;
-
-ALTER TABLE employee
+alter table candidates drop column role;
+ALTER TABLE candidates
 ADD role VARCHAR2(100) NOT NULL;
-
 
 -- Employee Leaves Table (Composite PK)
 CREATE TABLE employee_leaves (
@@ -109,14 +100,13 @@ drop table employee_attendance;
 -- Baseline Salary Table (Composite PK)
 CREATE TABLE baseline_salary (
     band_id      NUMBER PRIMARY KEY,
-    band         VARCHAR2(2),
+    band         VARCHAR2(100),
     job_title    VARCHAR2(100) NOT NULL,
-    skill        VARCHAR2(50),
     min_salary   NUMBER NOT NULL,
     max_salary   NUMBER NOT NULL,
     min_exp      NUMBER NOT NULL,
     max_exp      NUMBER NOT NULL,
-    UNIQUE (band, job_title, skill)
+    UNIQUE (band, job_title)
 );
 INSERT INTO baseline_salary VALUES (1001, 'Junior', 'Software Engineer', 400000, 600000, 0.0, 2.99);
 
@@ -213,7 +203,7 @@ ALTER TABLE candidates
 MODIFY country VARCHAR2(30) NOT NULL;
 
 ALTER TABLE candidates
-ADD role VARCHAR2(100) NOT NULL;
+ADD gender  char(1) NOT NULL;
 
 ALTER TABLE candidates ADD CONSTRAINT uniq_id_proof UNIQUE (id_proof_num);
 
