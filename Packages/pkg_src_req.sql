@@ -1240,13 +1240,13 @@ BEGIN
         SELECT d_master.masterdata_id INTO v_dept_master_id
         FROM department d
         JOIN master_data d_master ON UPPER(d_master.masterdata_type) = 'DEPARTMENT'
-                                  AND d_master.masterdata_value = d.department_name
+                                  AND UPPER(d_master.masterdata_value) =UPPER( d.department_name)
         WHERE d.department_id = p_department_id;
 
         SELECT parent_id INTO v_role_parent
         FROM master_data
         WHERE masterdata_type = 'JOB_TITLE'
-          AND masterdata_value = INITCAP(v_role);
+          AND UPPER(masterdata_value) = UPPER(v_role);
 
         IF v_role_parent IS NULL OR v_role_parent != v_dept_master_id THEN
             DECLARE
@@ -1318,6 +1318,22 @@ BEGIN
             v_manager_id := NULL;
             v_manager_name := 'Not Assigned';
     END;
+    -- Restrict multiple active CEOs
+    IF UPPER(v_role) = 'CEO' THEN
+        BEGIN
+            SELECT 1 
+            INTO ln_exists
+            FROM employee
+            WHERE UPPER(role) = 'CEO'
+              AND employee_status = 'Active';  -- only consider active CEO
+            
+            DBMS_OUTPUT.PUT_LINE('An active CEO already exists. Cannot promote another CEO.');
+            RETURN;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                NULL; -- No active CEO exists, OK to continue
+        END;
+    END IF;
 
     -- Generate employee ID
     SELECT employee_seq.NEXTVAL INTO v_new_emp_id FROM dual;

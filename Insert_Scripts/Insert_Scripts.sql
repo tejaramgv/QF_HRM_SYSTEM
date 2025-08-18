@@ -161,6 +161,11 @@ UPDATE master_data
 SET parent_id = 28
 WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'Backend Developer';
 
+UPDATE master_data
+SET parent_id = 95
+WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'CEO';
+
+
 select * from master_data;
 
 --TRUNCATE TABLE master_data;
@@ -234,7 +239,24 @@ INSERT INTO baseline_salary VALUES (1028, 'Junior', 'Backend Developer', 400000,
 INSERT INTO baseline_salary VALUES (1029, 'Mid', 'Backend Developer', 620000, 950000, 3.0, 5.99);
 INSERT INTO baseline_salary VALUES (1030, 'Senior', 'Backend Developer', 980000, 1350000, 6.0, 8.99);
 
+-- Executive Management (CEO-level)
+INSERT INTO baseline_salary VALUES (1031, 'Junior', 'Ceo', 1200000, 1800000, 5.0, 7.99);
+INSERT INTO baseline_salary VALUES (1032, 'Mid', 'Ceo', 2000000, 3000000, 8.0, 14.99);
+INSERT INTO baseline_salary VALUES (1033, 'Senior', 'Ceo', 3500000, 5000000, 15.0, 25.0);
+-- Executive Management Levels (3 Levels)
 
+-- Senior Executive / VP-level
+INSERT INTO baseline_salary VALUES (1031, 'Junior', 'VP', 1200000, 1800000, 10.0, 14.99);
+
+-- Executive Vice President (EVP)
+INSERT INTO baseline_salary VALUES (1032, 'Mid', 'EVP', 2000000, 3000000, 15.0, 24.99);
+
+-- Chief Executive Officer (CEO)
+INSERT INTO baseline_salary VALUES (1033, 'Senior', 'CEO', 3500000, 50000000, 25.0, 35.0);
+
+select * from baseline_salary;
+--alter table baseline_salary drop column skill;
+--truncate table baseline_salary;
 ----candidates inserts
 INSERT INTO candidates VALUES (1, 'Arjun', 'Reddy', 'arjun.reddy@gmail.com', 9876543210, TO_DATE('1993-05-22','YYYY-MM-DD'), 'Passport', 'K1234567', 'B.Tech', 'IIT Madras', 8.9, 'Hyderabad', 'India', 'Infosys', 800000, 1000000, 5, 'Java', 'In Progress', NULL, 'Active', 'M','Software Engineer');
 INSERT INTO candidates VALUES (2, 'Priya', 'Kumar', 'priya.kumar@gmail.com', 9876543211, TO_DATE('1994-08-15','YYYY-MM-DD'), 'Aadhar', 456123789897, 'M.Tech', 'IIT Bombay', 9.1, 'Mumbai', 'India', 'TCS', 900000, 1100000, 6, 'PL/SQL', 'In Progress', NULL, 'Active', 'F','Backend Developer');
@@ -315,8 +337,23 @@ INSERT INTO candidates VALUES (77, 'Deepika', 'Sharma', 'deepika.sharma@gmail.co
 INSERT INTO candidates VALUES (78, 'Tarun', 'Verma', 'tarun.verma@gmail.com', 9976543218, TO_DATE('2002-06-05','YYYY-MM-DD'), 'Passport', 'M5544933', 'B.Sc', 'JNTU', 7.6, 'Hyderabad', 'India', NULL, NULL, 43000, 0, 'DevOps', 'In Progress', NULL, 'Active', 'M','Devops Engineer');
 INSERT INTO candidates VALUES (79, 'Isha', 'Gupta', 'isha.gupta@gmail.com', 9865483219, TO_DATE('2004-03-18','YYYY-MM-DD'), 'DL', 'TS09DL3344556', 'B.Tech', 'IIIT Hyderabad', 8.7, 'Hyderabad', 'India', NULL, NULL, 46000, 0, 'Angular', 'In Progress', NULL, 'Active', 'F','Software Engineer');
 INSERT INTO candidates VALUES (80, 'Yash', 'Malhotra', 'yash.malhotra@gmail.com', 7876543220, TO_DATE('2005-01-25','YYYY-MM-DD'), 'Aadhar', 112233445566, 'B.Com', 'Mumbai University', 8.2, 'Mumbai', 'India', NULL, NULL, 41000, 0, 'Java', 'In Progress', NULL, 'Active', 'M','Software Engineer');
+INSERT INTO candidates (
+    candidate_id, first_name, last_name, email, dob,
+    id_proof_type, id_proof_num, highest_degree, university, cgpa,
+    city, country, last_employer, last_salary, expected_salary,
+    years_of_experience, skills, interview_status, rejection_reason,
+    status, gender, role, phone
+) VALUES (
+    81, 'Arjun', 'Kumar', 'arjun.kumar@gmail.com', TO_DATE('1975-08-12','YYYY-MM-DD'),
+    'Passport', 'P1234567', 'MBA', 'IIM Bangalore', 9.5,
+    'Bangalore', 'India', 'Infosys', 2500000, 5000000,
+    25, 'Business Management, Leadership, Strategy', 'Selected', NULL,
+    'Active', 'M', 'CEO', 9876543210
+);
 
+select * from candidates;
 --candidate to emp conversion
+execute  source_requirement.promote_candidate_to_employee(81, 11, 4500000);
 execute  source_requirement.promote_candidate_to_employee(1, 3, 680000);
 execute  source_requirement.promote_candidate_to_employee(2, 3, 980000);
 execute  source_requirement.promote_candidate_to_employee(3, 3, 680000);
@@ -404,3 +441,25 @@ INSERT INTO leave_type_master (leave_type_id, leave_type, is_paid, gender_allowe
 VALUES (6, 'Bereavement ', 'Y', 'All', 3, 'N');
 
 select * from leave_type_master;
+
+
+SELECT band_id, job_title, min_salary, max_salary, min_exp, max_exp
+FROM baseline_salary
+WHERE JOb_title = 'Executive Management';
+
+-- Check what the candidate role is
+SELECT '"' || role || '"' FROM candidates WHERE candidate_id = 81;
+
+-- Check baseline_salary for Executive Management
+SELECT band_id, job_title, min_salary, max_salary, min_exp, max_exp
+FROM baseline_salary
+WHERE department = 'Executive Management';
+
+-- Test the exact band query manually
+SELECT band_id
+FROM baseline_salary
+WHERE upper(job_title) = 'CEO'
+  AND 4500000 BETWEEN min_salary AND max_salary
+  AND 25 BETWEEN min_exp AND max_exp;
+
+select * from baseline_salary;
