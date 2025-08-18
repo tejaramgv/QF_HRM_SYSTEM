@@ -959,7 +959,7 @@ END;
 --        SELECT 1 INTO ln_exists
 --        FROM employee
 --        WHERE candidate_id = p_candidate_id;
---        DBMS_OUTPUT.PUT_LINE('â?Œ Candidate is already an employee.');
+--        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Candidate is already an employee.');
 --        RETURN;
 --    EXCEPTION
 --        WHEN no_data_found THEN NULL;
@@ -977,9 +977,9 @@ END;
 --    -- Step 2: Validate interview status
 --    IF v_status != 'Selected' THEN
 --        IF v_status = 'In Progress' THEN
---            DBMS_OUTPUT.PUT_LINE('â?Œ Cannot promote: Candidate interview is still in progress.');
+--            DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Cannot promote: Candidate interview is still in progress.');
 --        ELSE
---            DBMS_OUTPUT.PUT_LINE('â?Œ Cannot promote: Candidate interview was not successful.');
+--            DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Cannot promote: Candidate interview was not successful.');
 --        END IF;
 --        RETURN;
 --    END IF;
@@ -1009,17 +1009,17 @@ END;
 --            FROM master_data
 --            WHERE masterdata_id = v_role_parent;
 --
---            DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(v_role) || '" does not belong to the selected department.');
+--            DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Role "' || INITCAP(v_role) || '" does not belong to the selected department.');
 --            DBMS_OUTPUT.PUT_LINE('ðŸ”Ž This role is actually associated with department: "' || v_actual_dept_name || '".');
 --        EXCEPTION
 --            WHEN NO_DATA_FOUND THEN
---                DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(v_role) || '" exists but has no valid department assigned.');
+--                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Role "' || INITCAP(v_role) || '" exists but has no valid department assigned.');
 --        END;
 --        RETURN;
 --    END IF;
 --EXCEPTION
 --    WHEN NO_DATA_FOUND THEN
---        DBMS_OUTPUT.PUT_LINE('â?Œ Invalid role "' || INITCAP(v_role) || '" or department ID ' || p_department_id || '.');
+--        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Invalid role "' || INITCAP(v_role) || '" or department ID ' || p_department_id || '.');
 --        RETURN;
 --END;
 --
@@ -1057,7 +1057,7 @@ END;
 --            v_band_found := TRUE;
 --        EXCEPTION
 --            WHEN NO_DATA_FOUND THEN
---                DBMS_OUTPUT.PUT_LINE('â?Œ No suitable salary band found for role "' || v_role || '", experience, and salary.');
+--                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ No suitable salary band found for role "' || v_role || '", experience, and salary.');
 --                RETURN;
 --        END;
 --    END IF;
@@ -1093,18 +1093,18 @@ END;
 --    DBMS_OUTPUT.PUT_LINE('ðŸ“Œ Band ID: ' || v_band_id);
 --
 --    IF v_manager_id IS NULL THEN
---        DBMS_OUTPUT.PUT_LINE('â„¹ï¸? Note: No department manager was assigned for department ID ' || p_department_id);
+--        DBMS_OUTPUT.PUT_LINE('â„¹ï¿½? Note: No department manager was assigned for department ID ' || p_department_id);
 --    ELSE
 --        DBMS_OUTPUT.PUT_LINE('ðŸ“Œ Assigned Manager ID: ' || v_manager_id);
 --    END IF;
 --
 --EXCEPTION
 --    WHEN NO_DATA_FOUND THEN
---        DBMS_OUTPUT.PUT_LINE('â?Œ Candidate not found.');
+--        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Candidate not found.');
 --    WHEN DUP_VAL_ON_INDEX THEN
---        DBMS_OUTPUT.PUT_LINE('â?Œ Candidate already exists as employee.');
+--        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Candidate already exists as employee.');
 --    WHEN OTHERS THEN
---        DBMS_OUTPUT.PUT_LINE('â?Œ Unexpected error: ' || SQLERRM);
+--        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Unexpected error: ' || SQLERRM);
 --END;
 PROCEDURE appoint_ceo (
     p_first_name   IN VARCHAR2,
@@ -1124,7 +1124,7 @@ BEGIN
           AND employee_status = 'Active';
 
         IF v_count > 0 THEN
-            DBMS_OUTPUT.PUT_LINE('? A CEO already exists. Please remove or inactivate the current CEO first.');
+            DBMS_OUTPUT.PUT_LINE(' CEO already exists. Please remove or inactivate the current CEO first.');
             RETURN;
         END IF;
     END;
@@ -1137,7 +1137,7 @@ BEGIN
         AND ROWNUM = 1;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            DBMS_OUTPUT.PUT_LINE('? Executive Management department not found.');
+            DBMS_OUTPUT.PUT_LINE(' Executive Management department not found.');
             RETURN;
     END;
 
@@ -1163,15 +1163,15 @@ BEGIN
     WHERE department_id = v_department_id;
 
     -- 7. Output confirmation
-    DBMS_OUTPUT.PUT_LINE('? CEO appointed successfully!');
-    DBMS_OUTPUT.PUT_LINE('? Name: ' || INITCAP(p_first_name || ' ' || p_last_name));
-    DBMS_OUTPUT.PUT_LINE('? Salary: ?' || v_max_salary);
-    DBMS_OUTPUT.PUT_LINE('? Department: Executive Management');
-    DBMS_OUTPUT.PUT_LINE('? Employee ID: ' || v_new_emp_id);
+    DBMS_OUTPUT.PUT_LINE(' CEO appointed successfully!');
+    DBMS_OUTPUT.PUT_LINE(' Name: ' || INITCAP(p_first_name || ' ' || p_last_name));
+    DBMS_OUTPUT.PUT_LINE(' Salary: ' || v_max_salary);
+    DBMS_OUTPUT.PUT_LINE(' Department: Executive Management');
+    DBMS_OUTPUT.PUT_LINE(' Employee ID: ' || v_new_emp_id);
 
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('? Error while appointing CEO: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE(' Error while appointing CEO: ' || SQLERRM);
 
 END;
 
@@ -1208,7 +1208,7 @@ BEGIN
         SELECT 1 INTO ln_exists
         FROM employee
         WHERE candidate_id = p_candidate_id;
-        DBMS_OUTPUT.PUT_LINE('â?Œ Candidate is already an employee.');
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Candidate is already an employee.');
         RETURN;
     EXCEPTION
         WHEN no_data_found THEN NULL;
@@ -1226,7 +1226,7 @@ BEGIN
 
     -- Validate interview status
     IF v_status != 'Selected' THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ ' || v_candidate_name || ' cannot be promoted. Interview status: ' || v_status || '.');
+        DBMS_OUTPUT.PUT_LINE('' || v_candidate_name || ' cannot be promoted. Interview status: ' || v_status || '.');
         RETURN;
     END IF;
 
@@ -1257,17 +1257,17 @@ BEGIN
                 FROM master_data
                 WHERE masterdata_id = v_role_parent;
 
-                DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(v_role) || '" does not belong to department "' || v_dept_name || '".');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Role "' || INITCAP(v_role) || '" does not belong to department "' || v_dept_name || '".');
                 DBMS_OUTPUT.PUT_LINE('ðŸ”Ž This role is actually under department: "' || v_actual_dept_name || '".');
             EXCEPTION
                 WHEN NO_DATA_FOUND THEN
-                    DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(v_role) || '" exists but is not mapped to any department.');
+                    DBMS_OUTPUT.PUT_LINE(' Role "' || INITCAP(v_role) || '" exists but is not mapped to any department.');
             END;
             RETURN;
         END IF;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            DBMS_OUTPUT.PUT_LINE('â?Œ Invalid role "' || INITCAP(v_role) || '" or department "' || v_dept_name || '".');
+            DBMS_OUTPUT.PUT_LINE(' Invalid role "' || INITCAP(v_role) || '" or department "' || v_dept_name || '".');
             RETURN;
     END;
 
@@ -1300,7 +1300,7 @@ BEGIN
             v_band_found := TRUE;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('â?Œ No suitable salary band found for role "' || INITCAP(v_role) || '".');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ No suitable salary band found for role "' || INITCAP(v_role) || '".');
                 RETURN;
         END;
     END IF;
@@ -1351,10 +1351,10 @@ BEGIN
 
     -- Output summary
     DBMS_OUTPUT.PUT_LINE('âœ… ' || v_candidate_name || ' has been promoted to Employee ID ' || v_new_emp_id || '.');
-    DBMS_OUTPUT.PUT_LINE('ðŸ“Œ Department: ' || v_dept_name);
-    DBMS_OUTPUT.PUT_LINE('ðŸ“Œ Role: ' || INITCAP(v_role));
-    DBMS_OUTPUT.PUT_LINE('ðŸ“Œ Salary: â‚¹' || v_salary);
-    DBMS_OUTPUT.PUT_LINE('ðŸ“Œ Reporting Manager: ' || v_manager_name);
+    DBMS_OUTPUT.PUT_LINE(' Department: ' || v_dept_name);
+    DBMS_OUTPUT.PUT_LINE(' Role: ' || INITCAP(v_role));
+    DBMS_OUTPUT.PUT_LINE(' Salary: â‚¹' || v_salary);
+    DBMS_OUTPUT.PUT_LINE(' Reporting Manager: ' || v_manager_name);
 -- Get band name from master_data
 DECLARE
     v_band_name master_data.masterdata_value%TYPE;
@@ -1364,20 +1364,20 @@ BEGIN
     FROM baseline_salary
     WHERE band_id = v_band_id;
 
-    DBMS_OUTPUT.PUT_LINE('ðŸ“Œ Assigned Band: ' || v_band_name);
+    DBMS_OUTPUT.PUT_LINE(' Assigned Band: ' || v_band_name);
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('ðŸ“Œ Assigned Band ID: ' || v_band_id || ' (name not found)');
+        DBMS_OUTPUT.PUT_LINE(' Assigned Band ID: ' || v_band_id || ' (name not found)');
 END;
     
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Candidate not found.');
+        DBMS_OUTPUT.PUT_LINE(' Candidate not found.');
     WHEN DUP_VAL_ON_INDEX THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Candidate is already an employee.');
+        DBMS_OUTPUT.PUT_LINE(' Candidate is already an employee.');
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Unexpected error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE(' Unexpected error: ' || SQLERRM);
 END;
 
 

@@ -22,6 +22,9 @@ BEGIN
     mark_absentees;
 END;
 
+execute source_requirement.appoint_ceo('Viswanath','Reddy');
+select * from leave_balance;
+
 ALTER TABLE Employee DROP COLUMN First_Name;
 ALTER TABLE Employee DROP COLUMN Last_Name;
 ALTER TABLE Employee DROP COLUMN Gender;

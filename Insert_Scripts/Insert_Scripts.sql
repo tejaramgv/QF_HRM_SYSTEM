@@ -106,7 +106,7 @@ VALUES (92, 'LEAVE_TYPE', 'Loss of Pay', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
 VALUES (93, 'LEAVE_TYPE', 'Bereavement ', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
-VALUES (94, 'JOB_TITLE', 'CEO', NULL);  -- CEO doesn’t belong under any department
+VALUES (94, 'JOB_TITLE', 'CEO', NULL);  -- CEO doesnï¿½t belong under any department
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (95, 'DEPARTMENT', 'Executive Management', NULL);
 
 select * from master_data;
@@ -351,9 +351,15 @@ INSERT INTO candidates (
     'Active', 'M', 'CEO', 9876543210
 );
 
+<<<<<<< HEAD
 select * from candidates;
 --candidate to emp conversion
 execute  source_requirement.promote_candidate_to_employee(81, 11, 4500000);
+=======
+select * from employee;
+--candidate to emp conversion
+
+>>>>>>> 66fa1191108c95d079876ae46a5bf8fe78c11b7e
 execute  source_requirement.promote_candidate_to_employee(1, 3, 680000);
 execute  source_requirement.promote_candidate_to_employee(2, 3, 980000);
 execute  source_requirement.promote_candidate_to_employee(3, 3, 680000);
@@ -410,11 +416,12 @@ EXECUTE source_requirement.promote_candidate_to_employee(54, 3, 900000);
 
 set serveroutput on;
 SELECT * FROM Employee;
+select * from leave_balance;
+select * from candidates;
 --TRUNCATE TABLE candidates;
 --TRUNCATE TABLE Employee;
 --TRUNCATE TABLE Department;
 select * from candidates;
-delete from employee where employee_id=1102;
 
 
 -- Casual Leave (paid, allowed for all, carry forward allowed)

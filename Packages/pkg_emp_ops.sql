@@ -10,15 +10,20 @@ NOCACHE;
 
 
 CREATE OR REPLACE PACKAGE pkg_emp_ops AS
-    PROCEDURE list_employees (
-        p_department_id   IN NUMBER DEFAULT NULL,
-        p_role            IN VARCHAR2 DEFAULT NULL,
-        p_status          IN VARCHAR2 DEFAULT NULL,
-        p_band_id         IN NUMBER DEFAULT NULL,
-        p_city_id         IN NUMBER DEFAULT NULL,
-        p_country_id      IN NUMBER DEFAULT NULL,
-        p_manager_id      IN NUMBER DEFAULT NULL
-    );
+PROCEDURE list_employees (
+    p_department_name  IN VARCHAR2 DEFAULT NULL,
+    p_role             IN VARCHAR2 DEFAULT NULL,
+    p_status           IN VARCHAR2 DEFAULT NULL,
+    p_band_name        IN VARCHAR2 DEFAULT NULL,
+    p_city_name        IN VARCHAR2 DEFAULT NULL,
+    p_country_name     IN VARCHAR2 DEFAULT NULL,
+    p_manager_name     IN VARCHAR2 DEFAULT NULL,
+    p_first_name       IN VARCHAR2 DEFAULT NULL,
+    p_last_name        IN VARCHAR2 DEFAULT NULL,
+    p_gender           IN VARCHAR2 DEFAULT NULL,
+    p_base_experience  IN NUMBER   DEFAULT NULL,  -- years_of_experience from candidates
+    p_total_experience IN NUMBER   DEFAULT NULL   -- base + since joining
+);
     
     PROCEDURE get_employee_details (
     p_employee_id IN NUMBER
@@ -53,19 +58,7 @@ PROCEDURE update_employee (
     p_city_id         IN NUMBER DEFAULT NULL
     );
     
---    PROCEDURE apply_leave (
---    p_employee_id IN NUMBER,
---    p_leave_type  IN VARCHAR2,
---    p_start_date  IN DATE,
---    p_end_date    IN DATE
---);
---
---PROCEDURE process_leave (
---    p_employee_id IN NUMBER,
---    p_start_date  IN DATE,
---    p_approved_by IN NUMBER DEFAULT NULL,
---    p_action      IN VARCHAR2  -- 'APPROVE' or 'REJECT'
---);
+    
 
 PROCEDURE mark_in_time (
     p_employee_id IN NUMBER
@@ -98,65 +91,156 @@ END pkg_emp_ops;
 
 
 CREATE OR REPLACE PACKAGE BODY pkg_emp_ops AS
+-- PROCEDURE list_employees (
+--    p_department_id   IN NUMBER DEFAULT NULL,
+--    p_role            IN VARCHAR2 DEFAULT NULL,
+--    p_status          IN VARCHAR2 DEFAULT NULL,
+--    p_band_id         IN NUMBER DEFAULT NULL,
+--    p_city_id         IN NUMBER DEFAULT NULL,
+--    p_country_id      IN NUMBER DEFAULT NULL,
+--    p_manager_id      IN NUMBER DEFAULT NULL
+--) IS
+--    v_found BOOLEAN := FALSE;
+--BEGIN
+--    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------');
+--    DBMS_OUTPUT.PUT_LINE(' EMP_ID | CAND_ID |   NAME    | ROLE               | BAND  | STATUS   | EXP_YEARS | SALARY   | DEPT_ID | MANAGER_ID | COUNTRY  | CITY |' );
+--    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------');
+--
+--    FOR emp_rec IN (
+--        SELECT 
+--            e.employee_id,
+--            e.candidate_id,
+--            INITCAP(c.first_name || ' ' || c.last_name) AS full_name,
+--            e.role,
+--            b.band,
+--            e.employee_status,
+--            ROUND(c.years_of_experience + MONTHS_BETWEEN(SYSDATE, e.date_of_joining)/12, 1) AS total_exp,
+--            e.salary,
+--            e.department_id,
+--            e.manager_id,
+--            city_md.masterdata_value as city,
+--            country_md.masterdata_value as country
+--        FROM employee e
+--        JOIN candidates c ON e.candidate_id = c.candidate_id
+--        LEFT JOIN baseline_salary b ON b.band_id = e.band_id
+--        JOIN department d ON d.department_id = e.department_id
+--        JOIN master_data city_md ON d.city_id = city_md.masterdata_id
+--        LEFT JOIN master_data country_md ON city_md.parent_id = country_md.masterdata_id
+--        WHERE (p_department_id IS NULL OR e.department_id = p_department_id)
+--          AND (p_role IS NULL OR e.role = p_role)
+--          AND (p_status IS NULL OR e.employee_status = p_status)
+--          AND (p_band_id IS NULL OR e.band_id = p_band_id)
+--          AND (p_manager_id IS NULL OR e.manager_id = p_manager_id)
+--          AND (p_city_id IS NULL OR d.city_id = p_city_id)
+--          AND (p_country_id IS NULL OR city_md.parent_id = p_country_id)
+--          AND e.employee_status='Active'
+--        ORDER BY e.employee_id
+--    ) LOOP
+--        v_found := TRUE;
+--        DBMS_OUTPUT.PUT_LINE(
+--            RPAD(emp_rec.employee_id, 8) || '|' ||
+--            RPAD(emp_rec.candidate_id, 9) || '|' ||
+--            RPAD(emp_rec.full_name, 11) || '|' ||
+--            RPAD(emp_rec.role, 20) || '|' ||
+--            RPAD(NVL(emp_rec.band, '-'), 7) || '|' ||
+--            RPAD(emp_rec.employee_status, 11) || '|' ||
+--            RPAD(emp_rec.total_exp, 10) || '|' ||
+--            RPAD(emp_rec.salary, 10) || '|' ||
+--            RPAD(emp_rec.department_id, 9) || '|' ||
+--            RPAD(nvl(to_char(emp_rec.manager_id),'-'), 12) || '|' ||
+--            RPAD(emp_rec.country, 10) || '|' ||
+--            RPAD(emp_rec.city, 9)
+--        );
+--    END LOOP;
+--
+--    IF NOT v_found THEN
+--        DBMS_OUTPUT.PUT_LINE(' No employees found with the specified criteria.');
+--    END IF;
+--
+--EXCEPTION
+--    WHEN OTHERS THEN
+--        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+--END;
 PROCEDURE list_employees (
-    p_department_id   IN NUMBER DEFAULT NULL,
-    p_role            IN VARCHAR2 DEFAULT NULL,
-    p_status          IN VARCHAR2 DEFAULT NULL,
-    p_band_id         IN NUMBER DEFAULT NULL,
-    p_city_id         IN NUMBER DEFAULT NULL,
-    p_country_id      IN NUMBER DEFAULT NULL,
-    p_manager_id      IN NUMBER DEFAULT NULL
+    p_department_name  IN VARCHAR2 DEFAULT NULL,
+    p_role             IN VARCHAR2 DEFAULT NULL,
+    p_status           IN VARCHAR2 DEFAULT NULL,
+    p_band_name        IN VARCHAR2 DEFAULT NULL,
+    p_city_name        IN VARCHAR2 DEFAULT NULL,
+    p_country_name     IN VARCHAR2 DEFAULT NULL,
+    p_manager_name     IN VARCHAR2 DEFAULT NULL,
+    p_first_name       IN VARCHAR2 DEFAULT NULL,
+    p_last_name        IN VARCHAR2 DEFAULT NULL,
+    p_gender           IN VARCHAR2 DEFAULT NULL,
+    p_base_experience  IN NUMBER   DEFAULT NULL,  -- years_of_experience from candidates
+    p_total_experience IN NUMBER   DEFAULT NULL   -- base + since joining
 ) IS
     v_found BOOLEAN := FALSE;
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------');
-    DBMS_OUTPUT.PUT_LINE(' EMP_ID | CAND_ID |   NAME    | ROLE               | BAND  | STATUS   | EXP_YEARS | SALARY   | DEPT_ID | MANAGER_ID | COUNTRY  | CITY |' );
-    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE(' EMP_ID | CAND_ID | FIRST_NAME | LAST_NAME  | FULL_NAME     | GENDER | ROLE              | BAND  | STATUS   | BASE_EXP | TOTAL_EXP     | SALARY   | DEPARTMENT      | MANAGER         | COUNTRY     | CITY      |');
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------');
 
     FOR emp_rec IN (
         SELECT 
             e.employee_id,
             e.candidate_id,
+            INITCAP(c.first_name) AS first_name,
+            INITCAP(c.last_name) AS last_name,
             INITCAP(c.first_name || ' ' || c.last_name) AS full_name,
+            INITCAP(c.gender) AS gender,
             e.role,
-            b.band,
+            NVL(b.band, '-') AS band,
             e.employee_status,
+            c.years_of_experience AS base_experience,
             ROUND(c.years_of_experience + MONTHS_BETWEEN(SYSDATE, e.date_of_joining)/12, 1) AS total_exp,
             e.salary,
-            e.department_id,
-            e.manager_id,
-            city_md.masterdata_value as city,
-            country_md.masterdata_value as country
+            d.department_name,
+            NVL(mgr.first_name || ' ' || mgr.last_name, '-') AS manager_name,
+            country_md.masterdata_value AS country,
+            city_md.masterdata_value AS city
         FROM employee e
         JOIN candidates c ON e.candidate_id = c.candidate_id
         LEFT JOIN baseline_salary b ON b.band_id = e.band_id
         JOIN department d ON d.department_id = e.department_id
         JOIN master_data city_md ON d.city_id = city_md.masterdata_id
         LEFT JOIN master_data country_md ON city_md.parent_id = country_md.masterdata_id
-        WHERE (p_department_id IS NULL OR e.department_id = p_department_id)
-          AND (p_role IS NULL OR e.role = p_role)
-          AND (p_status IS NULL OR e.employee_status = p_status)
-          AND (p_band_id IS NULL OR e.band_id = p_band_id)
-          AND (p_manager_id IS NULL OR e.manager_id = p_manager_id)
-          AND (p_city_id IS NULL OR d.city_id = p_city_id)
-          AND (p_country_id IS NULL OR city_md.parent_id = p_country_id)
-          AND e.employee_status='Active'
+        LEFT JOIN employee mgr_e ON e.manager_id = mgr_e.employee_id
+        LEFT JOIN candidates mgr ON mgr_e.candidate_id = mgr.candidate_id
+        WHERE (p_department_name IS NULL OR UPPER(d.department_name) = UPPER(p_department_name))
+          AND (p_role IS NULL OR UPPER(e.role) = UPPER(p_role))
+          AND (p_status IS NULL OR UPPER(e.employee_status) = UPPER(p_status))
+          AND (p_band_name IS NULL OR UPPER(b.band) = UPPER(p_band_name))
+          AND (p_manager_name IS NULL OR UPPER(mgr.first_name || ' ' || mgr.last_name) = UPPER(p_manager_name))
+          AND (p_city_name IS NULL OR UPPER(city_md.masterdata_value) = UPPER(p_city_name))
+          AND (p_country_name IS NULL OR UPPER(country_md.masterdata_value) = UPPER(p_country_name))
+          AND (p_first_name IS NULL OR UPPER(c.first_name) = UPPER(p_first_name))
+          AND (p_last_name IS NULL OR UPPER(c.last_name) = UPPER(p_last_name))
+          AND (p_gender IS NULL OR UPPER(c.gender) = UPPER(p_gender))
+          AND (p_base_experience IS NULL OR c.years_of_experience >= p_base_experience)
+          AND (p_total_experience IS NULL OR 
+               ROUND(c.years_of_experience + MONTHS_BETWEEN(SYSDATE, e.date_of_joining)/12, 1) >= p_total_experience)
+          AND e.employee_status = 'Active'
         ORDER BY e.employee_id
     ) LOOP
         v_found := TRUE;
         DBMS_OUTPUT.PUT_LINE(
             RPAD(emp_rec.employee_id, 8) || '|' ||
             RPAD(emp_rec.candidate_id, 9) || '|' ||
-            RPAD(emp_rec.full_name, 11) || '|' ||
+            RPAD(emp_rec.first_name, 12) || '|' ||
+            RPAD(emp_rec.last_name, 13) || '|' ||
+            RPAD(emp_rec.full_name, 14) || '|' ||
+            RPAD(emp_rec.gender, 8) || '|' ||
             RPAD(emp_rec.role, 20) || '|' ||
-            RPAD(NVL(emp_rec.band, '-'), 7) || '|' ||
-            RPAD(emp_rec.employee_status, 11) || '|' ||
-            RPAD(emp_rec.total_exp, 10) || '|' ||
-            RPAD(emp_rec.salary, 10) || '|' ||
-            RPAD(emp_rec.department_id, 9) || '|' ||
-            RPAD(nvl(to_char(emp_rec.manager_id),'-'), 12) || '|' ||
-            RPAD(emp_rec.country, 10) || '|' ||
-            RPAD(emp_rec.city, 9)
+            RPAD(emp_rec.band, 7) || '|' ||
+            RPAD(emp_rec.employee_status, 9) || '|' ||
+            RPAD(emp_rec.base_experience, 10) || '|' ||
+            RPAD(emp_rec.total_exp, 16) || '|' ||
+            RPAD(emp_rec.salary, 11) || '|' ||
+            RPAD(emp_rec.department_name, 16) || '|' ||
+            RPAD(emp_rec.manager_name, 15) || '|' ||
+            RPAD(emp_rec.country, 14) || '|' ||
+            RPAD(emp_rec.city, 10)
         );
     END LOOP;
 
@@ -169,7 +253,7 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
 END;
 
-PROCEDURE get_employee_details (
+ PROCEDURE get_employee_details (
     p_employee_id IN NUMBER
 ) IS
     v_full_name         VARCHAR2(100);
@@ -267,7 +351,7 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('error: ' || SQLERRM);
 END;
 
-PROCEDURE update_employee (
+ PROCEDURE update_employee (
     p_employee_id     IN NUMBER,
     p_salary          IN NUMBER DEFAULT NULL,
     p_role            IN VARCHAR2 DEFAULT NULL,
@@ -328,7 +412,7 @@ BEGIN
         WHERE employee_id = p_employee_id;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            DBMS_OUTPUT.PUT_LINE('â?Œ Employee with ID ' || p_employee_id || ' not found.');
+            DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Employee with ID ' || p_employee_id || ' not found.');
             RETURN;
     END;
 
@@ -342,7 +426,7 @@ BEGIN
             WHERE d.department_id = v_existing_dept_id;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('â?Œ Existing department ID ' || v_existing_dept_id || ' not found in master data.');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Existing department ID ' || v_existing_dept_id || ' not found in master data.');
                 RETURN;
         END;
 
@@ -354,7 +438,7 @@ BEGIN
               AND UPPER(masterdata_value) = UPPER(p_role);
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(p_role) || '" not found in master data.');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Role "' || INITCAP(p_role) || '" not found in master data.');
                 RETURN;
         END;
 
@@ -364,11 +448,11 @@ BEGIN
                 SELECT masterdata_value INTO v_wrong_dept_name
                 FROM master_data
                 WHERE masterdata_id = v_role_parent_id;
-                DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(p_role) || '" does not belong to employee''s current department.');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Role "' || INITCAP(p_role) || '" does not belong to employee''s current department.');
                 DBMS_OUTPUT.PUT_LINE('ðŸ”Ž This role belongs to department: "' || v_wrong_dept_name || '".');
             EXCEPTION
                 WHEN NO_DATA_FOUND THEN
-                    DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(p_role) || '" has no associated department in master data.');
+                    DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Role "' || INITCAP(p_role) || '" has no associated department in master data.');
             END;
             RETURN;
         END IF;
@@ -385,6 +469,7 @@ BEGIN
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
                 DBMS_OUTPUT.PUT_LINE('â?Œ Provided department ID ' || p_department_id || ' not found in master data.');
+
                 RETURN;
         END;
 
@@ -397,6 +482,7 @@ BEGIN
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
                 DBMS_OUTPUT.PUT_LINE('â?Œ Current role "' || INITCAP(v_existing_role) || '" not found in master data.');
+
                 RETURN;
         END;
 
@@ -406,11 +492,11 @@ BEGIN
                 SELECT masterdata_value INTO v_wrong_dept_name
                 FROM master_data
                 WHERE masterdata_id = v_role_parent_id;
-                DBMS_OUTPUT.PUT_LINE('â?Œ Current role "' || INITCAP(v_existing_role) || '" does not match the new department.');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Current role "' || INITCAP(v_existing_role) || '" does not match the new department.');
                 DBMS_OUTPUT.PUT_LINE('ðŸ”Ž This role belongs to department: "' || v_wrong_dept_name || '".');
             EXCEPTION
                 WHEN NO_DATA_FOUND THEN
-                    DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(v_existing_role) || '" has no associated department in master data.');
+                    DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Role "' || INITCAP(v_existing_role) || '" has no associated department in master data.');
             END;
             RETURN;
         END IF;
@@ -426,7 +512,7 @@ BEGIN
             WHERE d.department_id = p_department_id;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('â?Œ Department ID ' || p_department_id || ' not found in master data.');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Department ID ' || p_department_id || ' not found in master data.');
                 RETURN;
         END;
 
@@ -438,7 +524,7 @@ BEGIN
               AND UPPER(masterdata_value) = UPPER(p_role);
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(p_role) || '" not found in master data.');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Role "' || INITCAP(p_role) || '" not found in master data.');
                 RETURN;
         END;
 
@@ -448,11 +534,11 @@ BEGIN
                 SELECT masterdata_value INTO v_wrong_dept_name
                 FROM master_data
                 WHERE masterdata_id = v_role_parent_id;
-                DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(p_role) || '" does not belong to the selected department.');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Role "' || INITCAP(p_role) || '" does not belong to the selected department.');
                 DBMS_OUTPUT.PUT_LINE('ðŸ”Ž This role belongs to department: "' || v_wrong_dept_name || '".');
             EXCEPTION
                 WHEN NO_DATA_FOUND THEN
-                    DBMS_OUTPUT.PUT_LINE('â?Œ Role "' || INITCAP(p_role) || '" has no associated department in master data.');
+                    DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Role "' || INITCAP(p_role) || '" has no associated department in master data.');
             END;
             RETURN;
         END IF;
@@ -500,39 +586,39 @@ IF p_first_name IS NOT NULL OR p_last_name IS NOT NULL OR
         DBMS_OUTPUT.PUT_LINE('âœ… Personal details updated for employee ID ' || p_employee_id || ':');
 
         IF p_first_name IS NOT NULL THEN
-            DBMS_OUTPUT.PUT_LINE('   ðŸ”? First Name: ' || v_old_first_name || ' â†’ ' || INITCAP(p_first_name));
+            DBMS_OUTPUT.PUT_LINE('   ï¿½? First Name: ' || v_old_first_name || ' â†’ ' || INITCAP(p_first_name));
         END IF;
 
         IF p_last_name IS NOT NULL THEN
-            DBMS_OUTPUT.PUT_LINE('   ðŸ”? Last Name: ' || v_old_last_name || ' â†’ ' || INITCAP(p_last_name));
+            DBMS_OUTPUT.PUT_LINE('   ï¿½? Last Name: ' || v_old_last_name || ' â†’ ' || INITCAP(p_last_name));
         END IF;
 
         IF p_email IS NOT NULL THEN
-            DBMS_OUTPUT.PUT_LINE('   ðŸ”? Email: ' || v_old_email || ' â†’ ' || LOWER(p_email));
+            DBMS_OUTPUT.PUT_LINE('   ï¿½? Email: ' || v_old_email || ' â†’ ' || LOWER(p_email));
         END IF;
 
         IF p_phone IS NOT NULL THEN
-            DBMS_OUTPUT.PUT_LINE('   ðŸ”? Phone: ' || v_old_phone || ' â†’ ' || p_phone);
+            DBMS_OUTPUT.PUT_LINE('   ï¿½? Phone: ' || v_old_phone || ' â†’ ' || p_phone);
         END IF;
 
         IF p_id_proof_type IS NOT NULL THEN
-            DBMS_OUTPUT.PUT_LINE('   ðŸ”? ID Proof Type: ' || v_old_id_type || ' â†’ ' || p_id_proof_type);
+            DBMS_OUTPUT.PUT_LINE('   ï¿½? ID Proof Type: ' || v_old_id_type || ' â†’ ' || p_id_proof_type);
         END IF;
 
         IF p_id_proof_number IS NOT NULL THEN
-            DBMS_OUTPUT.PUT_LINE('   ðŸ”? ID Proof Number: ' || v_old_id_num || ' â†’ ' || UPPER(p_id_proof_number));
+            DBMS_OUTPUT.PUT_LINE('   ï¿½? ID Proof Number: ' || v_old_id_num || ' â†’ ' || UPPER(p_id_proof_number));
         END IF;
 
         IF p_dob IS NOT NULL THEN
-            DBMS_OUTPUT.PUT_LINE('   ðŸ”? DOB: ' || TO_CHAR(v_old_dob, 'DD-Mon-YYYY') || ' â†’ ' || TO_CHAR(p_dob, 'DD-Mon-YYYY'));
+            DBMS_OUTPUT.PUT_LINE('   ï¿½? DOB: ' || TO_CHAR(v_old_dob, 'DD-Mon-YYYY') || ' â†’ ' || TO_CHAR(p_dob, 'DD-Mon-YYYY'));
         END IF;
         
         IF p_city IS NOT NULL THEN
-            DBMS_OUTPUT.PUT_LINE('   ðŸ”? City: ' || v_city || ' â†’ ' || p_city);
+            DBMS_OUTPUT.PUT_LINE('   ï¿½? City: ' || v_city || ' â†’ ' || p_city);
         END IF;        
         
         IF p_country IS NOT NULL THEN
-            DBMS_OUTPUT.PUT_LINE('   ðŸ”? Country: ' || v_country || ' â†’ ' || p_country);
+            DBMS_OUTPUT.PUT_LINE('   ï¿½? Country: ' || v_country || ' â†’ ' || p_country);
         END IF;        
 
     END;
@@ -574,7 +660,7 @@ END IF;
             v_band_found := TRUE;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('â?Œ No suitable band found for role "' || v_role || '" with salary ' || v_salary || ' and experience ' || v_exp);
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ No suitable band found for role "' || v_role || '" with salary ' || v_salary || ' and experience ' || v_exp);
   RETURN;      
         END;
     END IF;
@@ -634,7 +720,7 @@ WHERE d.department_id = p_department_id;
             ELSE
                 UPDATE employee SET manager_id = NULL
                 WHERE employee_id = p_employee_id;
-                DBMS_OUTPUT.PUT_LINE('ï¸? No manager assigned.');
+                DBMS_OUTPUT.PUT_LINE('ï¿½? No manager assigned.');
             END IF;
         END;
 
@@ -659,9 +745,9 @@ WHERE d.department_id = p_department_id;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Employee not found.');
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Employee not found.');
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Unexpected error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Unexpected error: ' || SQLERRM);
 END;
 
 
@@ -689,10 +775,10 @@ BEGIN
             FROM master_data
             WHERE masterdata_id = p_city_id AND UPPER(masterdata_type) = 'CITY';
 
-            DBMS_OUTPUT.PUT_LINE('â?Œ Department "' || INITCAP(p_department_name) || '" already exists in city "' || v_city_name || '".');
+            DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Department "' || INITCAP(p_department_name) || '" already exists in city "' || v_city_name || '".');
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('â?Œ Department "' || INITCAP(p_department_name) || '" already exists in an unknown city (ID: ' || p_city_id || ').');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Department "' || INITCAP(p_department_name) || '" already exists in an unknown city (ID: ' || p_city_id || ').');
         END;
         RETURN;
     END IF;
@@ -749,7 +835,7 @@ BEGIN
 
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Unexpected error during department insertion: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Unexpected error during department insertion: ' || SQLERRM);
 END;
 
 
@@ -840,7 +926,7 @@ END;
 --        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Unexpected error: ' || SQLERRM);
 --END;
 
-PROCEDURE update_department (
+ PROCEDURE update_department (
     p_department_id   IN NUMBER,
     p_department_name IN VARCHAR2 DEFAULT NULL,
     p_manager_id      IN NUMBER DEFAULT NULL,
@@ -882,10 +968,10 @@ BEGIN
             FROM master_data
             WHERE masterdata_id = v_new_city AND UPPER(masterdata_type) = 'CITY';
 
-            DBMS_OUTPUT.PUT_LINE('â?Œ Department "' || v_new_name || '" already exists in city "' || v_city_name || '".');
+            DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Department "' || v_new_name || '" already exists in city "' || v_city_name || '".');
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('â?Œ Department "' || v_new_name || '" already exists in unknown city (ID: ' || v_new_city || ').');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Department "' || v_new_name || '" already exists in unknown city (ID: ' || v_new_city || ').');
         END;
         RETURN;
     END IF;
@@ -906,9 +992,9 @@ BEGIN
                 v_city_name := 'Unknown';
         END;
 
-        DBMS_OUTPUT.PUT_LINE('âœ… Department updated:');
-        DBMS_OUTPUT.PUT_LINE('   âž¤ Name : ' || v_new_name);
-        DBMS_OUTPUT.PUT_LINE('   âž¤ City : ' || v_city_name);
+        DBMS_OUTPUT.PUT_LINE('Department updated:');
+        DBMS_OUTPUT.PUT_LINE('    Name : ' || v_new_name);
+        DBMS_OUTPUT.PUT_LINE('    City : ' || v_city_name);
     END IF;
 
     -- Step 4: Update manager assignment
@@ -918,7 +1004,7 @@ BEGIN
 --        WHERE employee_id = p_manager_id AND department_id = p_department_id;
 --
 --        IF v_count = 0 THEN
---            DBMS_OUTPUT.PUT_LINE('â?Œ Manager (ID: ' || p_manager_id || ') does not belong to this department.');
+--            DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Manager (ID: ' || p_manager_id || ') does not belong to this department.');
 --            RETURN;
 --        END IF;
 --
@@ -1034,9 +1120,9 @@ END IF;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Department with ID ' || p_department_id || ' not found.');
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Department with ID ' || p_department_id || ' not found.');
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('â?Œ Unexpected error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Unexpected error: ' || SQLERRM);
 END;
 
 
@@ -1249,7 +1335,7 @@ END;
 --        RAISE;
 --END apply_leave;
 --/
-PROCEDURE apply_leave (
+ PROCEDURE apply_leave (
     p_employee_id   IN NUMBER,
     p_leave_type    IN VARCHAR2,  -- e.g., 'Casual'
     p_start_date    IN DATE,
@@ -1380,6 +1466,7 @@ END apply_leave;
 
 
 
+
 --PROCEDURE process_leave (
 --    p_leave_id         IN NUMBER,
 --    p_action           IN VARCHAR2,       -- 'Approved' or 'Rejected'
@@ -1439,7 +1526,7 @@ END apply_leave;
 --        v_errors := v_errors || 'Action must be "Approved" or "Rejected". ';
 --    END IF;
 --
---    -- Step 3: Confirm that the person approving is the employee’s manager
+--    -- Step 3: Confirm that the person approving is the employeeï¿½s manager
 --    SELECT manager_id
 --    INTO v_manager_id
 --    FROM employee
@@ -1472,7 +1559,7 @@ END apply_leave;
 --    -- Step 7: If approving, check leave balances and adjust accordingly
 --    IF UPPER(p_action) = 'APPROVED' THEN
 --
---        -- Get the employee’s balance and whether leave is paid for the requested leave type
+--        -- Get the employeeï¿½s balance and whether leave is paid for the requested leave type
 --        BEGIN
 --            SELECT NVL(lb.balance_days,0), ltm.is_paid
 --            INTO v_balance, v_leave_paid
@@ -1756,56 +1843,74 @@ IS
     END;
 
     -- Deduct leave logic with fallback to other leave types
-    PROCEDURE deduct_leave(p_type IN NUMBER, p_days IN NUMBER) IS
-        v_balance_type NUMBER := 0;
-        v_days_left    NUMBER := p_days;
-    BEGIN
+PROCEDURE deduct_leave(p_type IN NUMBER, p_days IN NUMBER) IS
+    v_balance_type NUMBER := 0;
+    v_days_left    NUMBER := p_days;
+    v_curr_type    NUMBER := p_type;
+BEGIN
+    WHILE v_days_left > 0 LOOP
+        -- Get balance for current type
         BEGIN
-            SELECT NVL(balance_days,0) INTO v_balance_type
+            SELECT NVL(balance_days, 0)
+            INTO v_balance_type
             FROM leave_balance
-            WHERE employee_id=v_employee_id
-              AND leave_type_id=p_type
-              AND leave_year=EXTRACT(YEAR FROM v_start_date);
-        EXCEPTION WHEN NO_DATA_FOUND THEN
-            v_balance_type := 0;
+            WHERE employee_id = v_employee_id
+              AND leave_type_id = v_curr_type
+              AND leave_year = EXTRACT(YEAR FROM v_start_date);
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                v_balance_type := 0;
         END;
 
         IF v_balance_type >= v_days_left THEN
+            -- Deduct fully
             UPDATE leave_balance
-            SET balance_days = balance_days - v_days_left, last_updated=SYSDATE
-            WHERE employee_id=v_employee_id
-              AND leave_type_id=p_type
-              AND leave_year=EXTRACT(YEAR FROM v_start_date);
+            SET balance_days = balance_days - v_days_left,
+                last_updated = SYSDATE
+            WHERE employee_id = v_employee_id
+              AND leave_type_id = v_curr_type
+              AND leave_year = EXTRACT(YEAR FROM v_start_date);
 
-            IF p_type=v_casual_id THEN v_casual_used := v_days_left;
-            ELSIF p_type=v_sick_id THEN v_sick_used := v_days_left;
-            ELSIF p_type=v_lop_id THEN v_lop_used := v_days_left; END IF;
+            IF v_curr_type = v_casual_id THEN v_casual_used := v_casual_used + v_days_left;
+            ELSIF v_curr_type = v_sick_id THEN v_sick_used := v_sick_used + v_days_left;
+            ELSIF v_curr_type = v_lop_id THEN v_lop_used := v_lop_used + v_days_left;
+            END IF;
 
-            v_days_left := 0;
+            v_days_left := 0; -- all allocated
         ELSE
+            -- Use whatever is left, move on
             UPDATE leave_balance
-            SET balance_days=0, last_updated=SYSDATE
-            WHERE employee_id=v_employee_id
-              AND leave_type_id=p_type
-              AND leave_year=EXTRACT(YEAR FROM v_start_date);
+            SET balance_days = 0,
+                last_updated = SYSDATE
+            WHERE employee_id = v_employee_id
+              AND leave_type_id = v_curr_type
+              AND leave_year = EXTRACT(YEAR FROM v_start_date);
 
-            IF p_type=v_casual_id THEN v_casual_used := v_balance_type;
-            ELSIF p_type=v_sick_id THEN v_sick_used := v_balance_type;
-            ELSIF p_type=v_lop_id THEN v_lop_used := v_balance_type; END IF;
+            IF v_curr_type = v_casual_id THEN v_casual_used := v_casual_used + v_balance_type;
+            ELSIF v_curr_type = v_sick_id THEN v_sick_used := v_sick_used + v_balance_type;
+            ELSIF v_curr_type = v_lop_id THEN v_lop_used := v_lop_used + v_balance_type;
+            END IF;
 
             v_days_left := v_days_left - v_balance_type;
         END IF;
 
-        IF v_days_left > 0 AND p_type!=v_lop_id THEN
-            IF p_type=v_casual_id THEN
-                deduct_leave(v_sick_id,v_days_left);
-            ELSIF p_type=v_sick_id THEN
-                deduct_leave(v_casual_id,v_days_left);
-            ELSE
-                deduct_leave(v_lop_id,v_days_left);
+        -- If still days left, move to next type
+        IF v_days_left > 0 THEN
+            IF v_curr_type = v_casual_id THEN
+                v_curr_type := v_sick_id;
+            ELSIF v_curr_type = v_sick_id THEN
+                v_curr_type := v_lop_id;
+            ELSIF v_curr_type = v_lop_id THEN
+        -- ? All remaining goes to LOP (unlimited)
+                v_lop_used := v_lop_used + v_days_left;
+                v_days_left := 0;
+                EXIT;
+
             END IF;
         END IF;
-    END;
+    END LOOP;
+END;
+
 
 BEGIN
     -- Step 1: Check leave request exists
@@ -1910,6 +2015,7 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('An unexpected error occurred while processing the leave: ' || SQLERRM);
         RAISE;
 END process_leave;
+
 
 
 PROCEDURE mark_in_time (
@@ -2115,7 +2221,6 @@ END pkg_emp_ops;
 --    END IF;
 --END;
 
-
 --CREATE OR REPLACE TRIGGER trg_validate_leave
 --BEFORE INSERT OR UPDATE ON employee_leaves
 --FOR EACH ROW
@@ -2177,6 +2282,68 @@ END pkg_emp_ops;
 --    END IF;
 --END;
 
+
+--CREATE OR REPLACE TRIGGER trg_validate_leave
+--BEFORE INSERT OR UPDATE ON employee_leaves
+--FOR EACH ROW
+--DECLARE
+--    ln_count   NUMBER;
+--    lv_gender VARCHAR2(1);
+--BEGIN
+--    -- 1. Start date must be before or same as end date
+--    IF :NEW.start_date > :NEW.end_date THEN
+--        RAISE_APPLICATION_ERROR(-20001, 'Start date must be before or equal to end date.');
+--    END IF;
+--
+--    --  2. Overlap check should run only when:
+--    --    a) INSERTING a new leave
+--    --    b) UPDATING start_date or end_date
+--    IF (:NEW.start_date != :OLD.start_date OR
+--        :NEW.end_date   != :OLD.end_date OR
+--        INSERTING) THEN
+--
+--        -- 3. Check if there is any overlapping leave for same employee
+--        SELECT COUNT(*) INTO ln_count
+--        FROM employee_leaves
+--        WHERE employee_id = :NEW.employee_id
+--          AND status IN ('Pending', 'Approved')
+--          AND (
+--              (:NEW.start_date BETWEEN start_date AND end_date)
+--              OR (:NEW.end_date BETWEEN start_date AND end_date)
+--              OR (start_date BETWEEN :NEW.start_date AND :NEW.end_date)
+--              OR (end_date BETWEEN :NEW.start_date AND :NEW.end_date)
+--          );
+--
+--        -- 4. If overlapping leave found, raise error
+--        IF ln_count > 0 THEN
+--            RAISE_APPLICATION_ERROR(-20002, 'Leave dates overlap with existing approved or pending leave.');
+--        END IF;
+--        -- 5. Gender-Based Business Rule: Maternity Leave for Female Only
+--        IF LOWER(:NEW.leaves_type) = 'maternity' THEN
+--            SELECT gender INTO lv_gender
+--            FROM employee
+--            WHERE employee_id = :NEW.employee_id;
+--    
+--            IF lv_gender != 'F' THEN
+--                RAISE_APPLICATION_ERROR(-20013, 'Maternity leave is only applicable for female employees.');
+--            END IF;
+--        END IF;
+--
+--    -- 6. Gender-Based Business Rule: Paternity Leave for Male Only
+--    IF LOWER(:NEW.leaves_type) = 'paternity' THEN
+--        SELECT gender INTO lv_gender
+--        FROM employee
+--        WHERE employee_id = :NEW.employee_id;
+--
+--        IF lv_gender != 'M' THEN
+--            RAISE_APPLICATION_ERROR(-20014, 'Paternity leave is only applicable for male employees.');
+--        END IF;
+--    END IF;
+--
+--
+--    END IF;
+--END;
+--
 
 --CREATE OR REPLACE TRIGGER trg_validate_leave
 --BEFORE INSERT OR UPDATE ON employee_leaves
@@ -2349,25 +2516,28 @@ BEGIN
     END IF;
 
     -- 6. Assign default values for specific leave types
-    CASE UPPER(TRIM(:NEW.leave_type))
-        WHEN 'LOSS OF PAY' THEN
-            :NEW.annual_limit := 0;
-            :NEW.is_paid := 'N';
-            :NEW.carry_forward := 'N';
-            :NEW.gender_allowed := 'All';
-        WHEN 'PATERNITY' THEN
-            :NEW.annual_limit := 10;
-            :NEW.is_paid := 'Y';
-            :NEW.gender_allowed := 'M';
-            :NEW.carry_forward := 'N';
-        WHEN 'MATERNITY' THEN
-            :NEW.annual_limit := 182;
-            :NEW.is_paid := 'Y';
-            :NEW.gender_allowed := 'F';
-            :NEW.carry_forward := 'N';
-        WHEN 'CASUAL' THEN
-            :NEW.carry_forward := 'Y';
-    END CASE;
+   CASE UPPER(TRIM(:NEW.leave_type))
+    WHEN 'LOSS OF PAY' THEN
+        :NEW.annual_limit := 0;
+        :NEW.is_paid := 'N';
+        :NEW.carry_forward := 'N';
+        :NEW.gender_allowed := 'All';
+    WHEN 'PATERNITY' THEN
+        :NEW.annual_limit := 10;
+        :NEW.is_paid := 'Y';
+        :NEW.gender_allowed := 'M';
+        :NEW.carry_forward := 'N';
+    WHEN 'MATERNITY' THEN
+        :NEW.annual_limit := 182;
+        :NEW.is_paid := 'Y';
+        :NEW.gender_allowed := 'F';
+        :NEW.carry_forward := 'N';
+    WHEN 'CASUAL' THEN
+        :NEW.carry_forward := 'Y';
+    ELSE
+        -- Default: donâ€™t override whatever was provided
+        NULL;
+END CASE;
 
     -- 7. Raise all collected errors together
     IF LENGTH(TRIM(v_errors)) > 0 THEN
