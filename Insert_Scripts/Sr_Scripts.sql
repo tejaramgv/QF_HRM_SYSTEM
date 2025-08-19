@@ -130,8 +130,8 @@ delete from employee where candidate_id=150;
 set serveroutput on;
 --delete from employee where employee_id>1134;
 EXEC pkg_emp_ops.add_department(p_department_name=>'enGineering');
-
-EXEC pkg_emp_ops.update_department(p_department_id=>1,p_city_id=>22,p_manager_id=>1035);
+set serveroutput on;
+EXEC pkg_emp_ops.update_department(p_department_id=>6,p_manager_id=>1038);
 
 select * from employee;
 select * from candidates;
@@ -378,5 +378,17 @@ select * from master_data;
 select * from candidates;
 select * from employee;
 select *from department;
+select * from leave_balance;
+select * from employee_attendance;
 
 EXEC pkg_emp_ops.update_employee(p_employee_id=>1077,p_role=>'backend developer');
+
+EXEC pkg_emp_ops.apply_leave (  p_employee_id=>1037,p_leave_type=>'sick',p_start_date=>to_date('18-08-2025','dd-mm-yyyy'),p_end_date=>to_date('18-08-2025','dd-mm-yyyy'),p_reason=>'health issue');
+
+EXEC pkg_emp_ops.process_leave ( p_leave_id=> 5,p_action    =>'approved'     ,  p_approved_by =>1039);
+
+EXEC pkg_emp_ops.mark_in_time ( p_employee_id=>1037);
+set serveroutput on;
+BEGIN
+   pkg_emp_ops.search_leave_info(p_employee_id=>1036,p_leave_type => 'sick',p_output_mode=>'jm');
+END;
