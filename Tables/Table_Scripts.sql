@@ -112,17 +112,18 @@ INSERT INTO baseline_salary VALUES (1001, 'Junior', 'Software Engineer', 400000,
 
 --drop table baseline_salary;
 -- Performance Reviews Table (Composite Unique)
-CREATE TABLE performance_reviews (
-    review_id   NUMBER PRIMARY KEY,
-    emp_id      NUMBER REFERENCES employees(employee_id) NOT NULL,
-    quarter     VARCHAR2(2) NOT NULL,
-    year        NUMBER NOT NULL,
-    rating      NUMBER CHECK (rating BETWEEN 1 AND 5),  
-    status      VARCHAR2(10) CHECK (status IN ('Provisional', 'Final')) NOT NULL,
-    created_at  DATE DEFAULT SYSDATE,
-    UNIQUE (emp_id, quarter, year)
+CREATE TABLE performance_evaluation (
+    eval_id         NUMBER PRIMARY KEY,
+    employee_id     NUMBER REFERENCES employee(employee_id),
+    quarter         VARCHAR2(2) CHECK (quarter IN ('Q1','Q2','Q3','Q4')),
+    year            NUMBER DEFAULT EXTRACT(YEAR FROM SYSDATE),
+    rating_id       NUMBER REFERENCES master_data(masterdata_id), -- FK instead of number
+    evaluation_type VARCHAR2(20) CHECK (evaluation_type IN ('Provisional', 'Final')),
+    evaluator_id    NUMBER REFERENCES employee(employee_id),
+    remarks         VARCHAR2(500),
+    created_date    DATE DEFAULT SYSDATE,
+    last_updated    DATE DEFAULT SYSDATE
 );
-
 -- Salary History Table
 CREATE TABLE salary_history (
     hist_id     NUMBER PRIMARY KEY,
