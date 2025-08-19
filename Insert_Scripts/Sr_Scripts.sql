@@ -392,3 +392,10 @@ set serveroutput on;
 BEGIN
    pkg_emp_ops.search_leave_info(p_employee_id=>1036,p_leave_type => 'sick',p_output_mode=>'jm');
 END;
+
+
+
+
+EXEC pkg_perform_mngmt.add_or_update_performance (p_employee_id=>1036,p_quarter=>'Q1',p_year=>2025,p_rating_value=>3,p_eval_type=>'Provisional',p_evaluator_id=>1039);
+select * from performance_evaluation;
+set serveroutput on;

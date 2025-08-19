@@ -86,6 +86,13 @@ INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, paren
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (84, 'PERFORMANCE_RATING', '3', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (85, 'PERFORMANCE_RATING', '4', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (86, 'PERFORMANCE_RATING', '5', NULL);
+
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (96, 'PERFORMANCE_RATING_DESCRIPTION', 'Poor', 82);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (97, 'PERFORMANCE_RATING_DESCRIPTION', 'Fair', 83);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (98, 'PERFORMANCE_RATING_DESCRIPTION', 'Satisfactory', 84);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (99, 'PERFORMANCE_RATING_DESCRIPTION', 'Very Good', 85);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (100, 'PERFORMANCE_RATING_DESCRIPTION', 'Excellent', 86);
+
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
 VALUES (87, 'LEAVE_TYPE', 'Sick', NULL);
 
