@@ -1349,8 +1349,8 @@ END;
  PROCEDURE apply_leave (
     p_employee_id   IN NUMBER,
     p_leave_type    IN VARCHAR2,  -- e.g., 'Casual'
-    p_start_date    IN DATE,
-    p_end_date      IN DATE,
+    p_start_date    IN VARCHAR2,
+    p_end_date      IN VARCHAR2,
     p_reason        IN VARCHAR2
 )
 IS
@@ -1360,7 +1360,22 @@ IS
     v_employee_status VARCHAR2(15);
     v_errors          VARCHAR2(4000) := '';
     v_overlap_count   NUMBER;
+    v_start_date_dt   DATE;
+    v_end_date_dt     DATE;
+
 BEGIN
+    ----------------------------------------------------------------
+    -- 0. Convert string dates to DATE
+    ----------------------------------------------------------------
+    BEGIN
+        v_start_date_dt := TO_DATE(p_start_date, 'YYYY-MM-DD');
+        v_end_date_dt   := TO_DATE(p_end_date, 'YYYY-MM-DD');
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Invalid date format. Please enter dates as YYYY-MM-DD.');
+    END;
+
+
     ----------------------------------------------------------------
     -- 1. Check if leave type exists
     ----------------------------------------------------------------
@@ -1414,17 +1429,17 @@ BEGIN
     ----------------------------------------------------------------
     -- 4. Validate dates
     ----------------------------------------------------------------
-    IF p_start_date > p_end_date THEN
+    IF v_start_date_dt  > v_end_date_dt  THEN
         v_errors := v_errors || '- The start date cannot be after the end date.' || CHR(10);
     END IF;
 
-    IF p_start_date < TRUNC(SYSDATE) THEN
+    IF v_start_date_dt  < TRUNC(SYSDATE) THEN
         v_errors := v_errors || '- The start date cannot be in the past. Please choose today or a future date.' || CHR(10);
     END IF;
     
     -- 4. Restrict weekends for non-maternity/paternity leaves
     IF p_leave_type NOT IN ('Maternity', 'Paternity') THEN
-        IF TO_CHAR(p_start_date, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT', 'SUN') THEN
+        IF TO_CHAR(v_start_date_dt, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT', 'SUN') THEN
             v_errors := v_errors || '- The start date for "' || p_leave_type || '" leave falls on a weekend. Please select a weekday.' || CHR(10);
         END IF;
     END IF;
@@ -1440,10 +1455,10 @@ BEGIN
         WHERE employee_id = p_employee_id
           AND status IN ('Pending', 'Approved')
           AND (
-              (p_start_date BETWEEN start_date AND end_date)
-              OR (p_end_date BETWEEN start_date AND end_date)
-              OR (start_date BETWEEN p_start_date AND p_end_date)
-              OR (end_date BETWEEN p_start_date AND p_end_date)
+              (v_start_date_dt  BETWEEN start_date AND end_date)
+              OR (v_end_date_dt  BETWEEN start_date AND end_date)
+              OR (start_date BETWEEN v_start_date_dt AND v_end_date_dt )
+              OR (end_date BETWEEN v_start_date_dt AND v_end_date_dt)
           );
 
         IF v_overlap_count > 0 THEN
@@ -1467,7 +1482,7 @@ BEGIN
     INSERT INTO leave_application (
         leave_id, employee_id, leave_type_id, start_date, end_date, status, reason, applied_date
     ) VALUES (
-        (SELECT NVL(MAX(leave_id), 0) + 1 FROM leave_application), p_employee_id, v_leave_type_id, p_start_date, p_end_date, 'Pending', INITCAP(p_reason), SYSDATE
+        (SELECT NVL(MAX(leave_id), 0) + 1 FROM leave_application), p_employee_id, v_leave_type_id, v_start_date_dt, v_end_date_dt, 'Pending', INITCAP(p_reason), SYSDATE
     );
 
     COMMIT;
@@ -2216,37 +2231,68 @@ PROCEDURE mark_in_time (
     p_employee_id IN NUMBER
 ) AS
     ln_exists       NUMBER;
-    ld_today        DATE := TRUNC(SYSDATE);
     ln_in_time_set  NUMBER;
+    ln_on_leave     NUMBER;
+    ld_today        DATE := TRUNC(SYSDATE);
+    ld_curr_time    TIMESTAMP := SYSTIMESTAMP;
 BEGIN
-    -- Check if employee exists
-    SELECT COUNT(*) INTO ln_exists FROM employee WHERE employee_id = p_employee_id;
+    IF TO_CHAR(ld_today, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT', 'SUN') THEN
+        DBMS_OUTPUT.PUT_LINE('Attendance cannot be marked on weekends.');
+        RETURN;
+    END IF;
+
+    -- 1. Check if employee exists and is active
+    SELECT COUNT(*) INTO ln_exists
+    FROM employee
+    WHERE employee_id = p_employee_id AND employee_status = 'Active';
 
     IF ln_exists = 0 THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Employee does not exist with ID: ' || p_employee_id);
+        DBMS_OUTPUT.PUT_LINE('Employee does not exist or is inactive. Cannot mark In-Time.');
+        RETURN;
     END IF;
 
-    -- Check if in-time already exists for today
+    -- 2. Check if employee is on leave today
+    SELECT COUNT(*) INTO ln_on_leave
+    FROM leave_application
+    WHERE employee_id = p_employee_id
+      AND status = 'Approved'
+      AND TRUNC(start_date) <= ld_today
+      AND TRUNC(end_date) >= ld_today;
+
+    IF ln_on_leave > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Employee is on leave today. Cannot mark In-Time.');
+        RETURN;
+    END IF;
+
+    -- 3. Check if in-time already exists for today
     SELECT COUNT(*) INTO ln_in_time_set
     FROM employee_attendance
-    WHERE employee_id = p_employee_id AND attendance_date = ld_today AND in_time IS NOT NULL;
+    WHERE employee_id = p_employee_id
+      AND attendance_date = ld_today
+      AND in_time IS NOT NULL;
 
     IF ln_in_time_set > 0 THEN
-        RAISE_APPLICATION_ERROR(-20002, 'In-Time already recorded for today.');
+        DBMS_OUTPUT.PUT_LINE('In-Time already recorded for today for Employee ID ' || p_employee_id);
+        RETURN;
     END IF;
 
-    -- Insert or update record
-    BEGIN
-        INSERT INTO employee_attendance (attendance_id,employee_id, attendance_date, in_time,status)
-        VALUES (seq_attendance_id.NEXTVAL,p_employee_id, ld_today, SYSTIMESTAMP,'Present');
-    EXCEPTION
-        WHEN DUP_VAL_ON_INDEX THEN
-          RAISE_APPLICATION_ERROR(-20016, 'Attendance already marked for today!');
+    -- 4. Check if current time is within allowed In-Time window (09:00 - 12:00)
+    IF TO_NUMBER(TO_CHAR(ld_curr_time, 'HH24')) NOT BETWEEN 9 AND 12 THEN
+        DBMS_OUTPUT.PUT_LINE('Current time is outside allowed In-Time window (09:00 - 12:00). Cannot mark In-Time.');
+        RETURN;
+    END IF;
 
-    END;
+    -- 5. Insert attendance as Present
+    INSERT INTO employee_attendance(
+        attendance_id, employee_id, attendance_date, in_time, status
+    ) VALUES (
+        seq_attendance_id.NEXTVAL, p_employee_id, ld_today, ld_curr_time, 'Present'
+    );
 
-    DBMS_OUTPUT.PUT_LINE('Employee ID ' || p_employee_id || ' has entered the company at ' || TO_CHAR(SYSTIMESTAMP, 'HH24:MI:SS'));
+    DBMS_OUTPUT.PUT_LINE('In-Time marked successfully for Employee ID ' || p_employee_id || 
+                         ' at ' || TO_CHAR(ld_curr_time,'HH24:MI:SS'));
 END;
+
 
 
 PROCEDURE mark_out_time (
@@ -2257,94 +2303,215 @@ PROCEDURE mark_out_time (
     ln_attendance_id NUMBER;
     ld_in_time       TIMESTAMP;
     ln_out_time_set  NUMBER;
+    ln_on_leave      NUMBER;
+    v_employee_name  VARCHAR2(100);
 BEGIN
-    -- Check if employee exists
-    SELECT COUNT(*) INTO ln_exists FROM employee WHERE employee_id = p_employee_id;
+    -- 0. Check if today is a weekend
+    IF TO_CHAR(ld_today, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT', 'SUN') THEN
+        DBMS_OUTPUT.PUT_LINE('Attendance cannot be marked on weekends.');
+        RETURN;
+    END IF;
+
+    -- 1. Check if employee exists and is active, get name
+    SELECT COUNT(*)
+    INTO ln_exists
+    FROM employee e
+    JOIN candidates c ON e.candidate_id = c.candidate_id
+    WHERE e.employee_id = p_employee_id
+      AND e.employee_status = 'Active';
 
     IF ln_exists = 0 THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Employee does not exist with ID: ' || p_employee_id);
+        DBMS_OUTPUT.PUT_LINE('Employee ID ' || p_employee_id || ' does not exist or is not active.');
+        RETURN;
     END IF;
 
-    -- Check if in-time exists first
-    SELECT in_time, attendance_id INTO ld_in_time, ln_attendance_id
+    -- Get employee name
+    SELECT INITCAP(c.first_name || ' ' || c.last_name)
+    INTO v_employee_name
+    FROM candidates c
+    JOIN employee e ON e.candidate_id = c.candidate_id
+    WHERE e.employee_id = p_employee_id;
+
+    -- 2. Check if In-Time exists for today
+    SELECT in_time, attendance_id 
+    INTO ld_in_time, ln_attendance_id
     FROM employee_attendance
-    WHERE employee_id = p_employee_id AND attendance_date = ld_today;
+    WHERE employee_id = p_employee_id 
+      AND attendance_date = ld_today;
 
     IF ld_in_time IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20002, 'Cannot mark Out-Time without In-Time.');
+        DBMS_OUTPUT.PUT_LINE('Cannot mark Out-Time without In-Time for ' || v_employee_name || '. Please mark In-Time first.');
+        RETURN;
     END IF;
 
-    -- Check if out-time is already marked
-    SELECT COUNT(*) INTO ln_out_time_set
+    -- 3. Check if Out-Time is already marked
+    SELECT COUNT(*) 
+    INTO ln_out_time_set
     FROM employee_attendance
-    WHERE employee_id = p_employee_id AND attendance_date = ld_today AND out_time IS NOT NULL;
+    WHERE employee_id = p_employee_id 
+      AND attendance_date = ld_today 
+      AND out_time IS NOT NULL;
 
     IF ln_out_time_set > 0 THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Out-Time already recorded for today.');
+        DBMS_OUTPUT.PUT_LINE('Out-Time has already been recorded today for ' || v_employee_name || '.');
+        RETURN;
     END IF;
 
-    -- Update Out-Time
+    -- 4. Check if employee is on approved leave today
+    SELECT COUNT(*) INTO ln_on_leave
+    FROM leave_application
+    WHERE employee_id = p_employee_id
+      AND status = 'Approved'
+      AND TRUNC(start_date) <= ld_today
+      AND TRUNC(end_date) >= ld_today;
+
+    IF ln_on_leave > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Cannot mark Out-Time because ' || v_employee_name || ' is on approved leave today.');
+        RETURN;
+    END IF;
+
+    -- 5. Check Out-Time is not earlier than In-Time
+    IF SYSTIMESTAMP <= ld_in_time THEN
+        DBMS_OUTPUT.PUT_LINE('Cannot mark Out-Time earlier than In-Time for ' || v_employee_name || '.');
+        RETURN;
+    END IF;
+
+    -- 6. Update Out-Time
     UPDATE employee_attendance
     SET out_time = SYSTIMESTAMP
     WHERE attendance_id = ln_attendance_id;
 
-    DBMS_OUTPUT.PUT_LINE('Employee ID ' || p_employee_id || ' has exited the company at ' || TO_CHAR(SYSTIMESTAMP, 'HH24:MI:SS'));
+    DBMS_OUTPUT.PUT_LINE('Out-Time recorded successfully for ' || v_employee_name || '.');
+    DBMS_OUTPUT.PUT_LINE('Date: ' || TO_CHAR(ld_today,'DD-MON-YYYY'));
+    DBMS_OUTPUT.PUT_LINE('Out-Time: ' || TO_CHAR(SYSTIMESTAMP, 'HH24:MI:SS'));
+
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        RAISE_APPLICATION_ERROR(-20004, 'No attendance record found for today. Please mark In-Time first.');
+        DBMS_OUTPUT.PUT_LINE('No attendance record found for today for ' || v_employee_name || '. Please mark In-Time first.');
 END;
+
 
 
 PROCEDURE mark_leave (
     ln_employee_id IN NUMBER
 ) AS
-    ln_exists NUMBER;
+    ln_exists        NUMBER;
+    ln_on_leave      NUMBER;
+    v_employee_name  VARCHAR2(100);
+    ld_today         DATE := TRUNC(SYSDATE);
 BEGIN
-    -- Check if employee exists
-    SELECT COUNT(*) INTO ln_exists
-    FROM employee
-    WHERE employee_id = ln_employee_id;
-
-    IF ln_exists = 0 THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Employee not found.');
+    -- 0. Check if today is a weekend
+    IF TO_CHAR(ld_today, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT','SUN') THEN
+        DBMS_OUTPUT.PUT_LINE('Leave cannot be marked on weekends.');
+        RETURN;
     END IF;
 
-    -- Check if attendance already marked for today
+    -- 1. Check if employee exists and active
+    SELECT COUNT(*)
+    INTO ln_exists
+    FROM employee e
+    JOIN candidates c ON e.candidate_id = c.candidate_id
+    WHERE e.employee_id = ln_employee_id
+      AND e.employee_status = 'Active';
+
+    IF ln_exists = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Employee ID ' || ln_employee_id || ' does not exist or is not active.');
+        RETURN;
+    END IF;
+
+    -- Get employee name
+    SELECT INITCAP(c.first_name || ' ' || c.last_name)
+    INTO v_employee_name
+    FROM candidates c
+    JOIN employee e ON e.candidate_id = c.candidate_id
+    WHERE e.employee_id = ln_employee_id;
+
+    -- 2. Check if attendance already marked for today
     SELECT COUNT(*) INTO ln_exists
     FROM employee_attendance
     WHERE employee_id = ln_employee_id
-      AND attendance_date = TRUNC(SYSDATE);
+      AND attendance_date = ld_today;
 
     IF ln_exists > 0 THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Attendance already marked for today.');
+        DBMS_OUTPUT.PUT_LINE('Attendance has already been marked today for ' || v_employee_name || '.');
+        RETURN;
     END IF;
 
-    -- Insert Leave
+    -- 3. Check if leave already approved
+    SELECT COUNT(*) INTO ln_on_leave
+    FROM leave_application
+    WHERE employee_id = ln_employee_id
+      AND status = 'Approved'
+      AND TRUNC(start_date) <= ld_today
+      AND TRUNC(end_date) >= ld_today;
+
+    IF ln_on_leave > 0 THEN
+        DBMS_OUTPUT.PUT_LINE(v_employee_name || ' already has approved leave today.');
+        RETURN;
+    END IF;
+
+    -- 4. Insert leave
     INSERT INTO employee_attendance (
-        attendance_id,employee_id, attendance_date, status
+        attendance_id, employee_id, attendance_date, status
     ) VALUES (
-        seq_attendance_id.NEXTVAL,ln_employee_id, TRUNC(SYSDATE), 'Leave'
+        seq_attendance_id.NEXTVAL, ln_employee_id, ld_today, 'Leave'
     );
 
-    DBMS_OUTPUT.PUT_LINE('Employee ID ' || ln_employee_id || ' marked as on Leave today.');
+    DBMS_OUTPUT.PUT_LINE('Attendance marked as Leave today for ' || v_employee_name || '.');
+    DBMS_OUTPUT.PUT_LINE('Date: ' || TO_CHAR(ld_today,'DD-MON-YYYY'));
+
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('An error occurred while marking leave: ' || SQLERRM);
 END;
 
 
 PROCEDURE mark_absentees AS
+    v_count NUMBER;
+    ld_today DATE := TRUNC(SYSDATE);
 BEGIN
+    -- Step 0: Check if today is a weekend
+    IF TO_CHAR(ld_today, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT','SUN') THEN
+        DBMS_OUTPUT.PUT_LINE('Attendance is not marked on weekends.');
+        RETURN;
+    END IF;
+
+    -- Step 1: Insert Absent for all active employees not yet marked today and not on leave
     INSERT INTO employee_attendance (
         attendance_id, employee_id, attendance_date, status
     )
-    SELECT seq_attendance_id.NEXTVAL, e.employee_id, TRUNC(SYSDATE), 'Absent'
+    SELECT seq_attendance_id.NEXTVAL, e.employee_id, ld_today, 'Absent'
     FROM employee e
-    WHERE NOT EXISTS (
-        SELECT 1 FROM employee_attendance a
-        WHERE a.employee_id = e.employee_id AND a.attendance_date = TRUNC(SYSDATE)
-    );
+    WHERE e.employee_status = 'Active'
+      AND NOT EXISTS (
+        SELECT 1 
+        FROM employee_attendance a
+        WHERE a.employee_id = e.employee_id 
+          AND a.attendance_date = ld_today
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM leave_application l
+        WHERE l.employee_id = e.employee_id
+          AND l.status = 'Approved'
+          AND TRUNC(l.start_date) <= ld_today
+          AND TRUNC(l.end_date) >= ld_today
+      );
 
+    -- Step 2: Get the number of employees marked as absent
+    v_count := SQL%ROWCOUNT;
 
-    DBMS_OUTPUT.PUT_LINE('All unmarked employees have been marked as Absent for today.');
+    IF v_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('All active employees have already been marked for today or are on approved leave.');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE(v_count || ' active employee(s) marked as Absent for today.');
+    END IF;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('An error occurred while marking absentees: ' || SQLERRM);
 END;
+
 
  PROCEDURE search_leave_info (
     p_employee_id    IN NUMBER   DEFAULT NULL,
@@ -2716,63 +2883,65 @@ END pkg_emp_ops;
 --END;
 --
 
-CREATE OR REPLACE TRIGGER trg_prevent_duplicate_attendance
-BEFORE INSERT ON employee_attendance
-FOR EACH ROW
-DECLARE
-    ln_count NUMBER;
-BEGIN
-    -- Validations only for 'Present' status
-    IF LOWER(:NEW.status) = 'present' THEN
-        -- In-time must not be NULL
-        IF :NEW.in_time IS NULL THEN
-            RAISE_APPLICATION_ERROR(-20006, 'In Time cannot be null when marking Present.');
-        END IF;
-
-        -- In-time must be between 09:00 and 11:00
---        IF TO_CHAR(:NEW.in_time, 'HH24:MI') NOT BETWEEN '0:00' AND '11:00' THEN
---            RAISE_APPLICATION_ERROR(-20007, 'In Time must be between 09:00 and 11:00 for Present employees.');
+--CREATE OR REPLACE TRIGGER trg_prevent_duplicate_attendance
+--BEFORE INSERT ON employee_attendance
+--FOR EACH ROW
+--DECLARE
+--    ln_count NUMBER;
+--BEGIN
+--    -- Validations only for 'Present' status
+--    IF LOWER(:NEW.status) = 'present' THEN
+--        -- In-time must not be NULL
+--        IF :NEW.in_time IS NULL THEN
+--            RAISE_APPLICATION_ERROR(-20006, 'In Time cannot be null when marking Present.');
 --        END IF;
-
-        -- If out_time is provided, it must be after in_time
-        IF :NEW.out_time IS NOT NULL AND :NEW.out_time <= :NEW.in_time THEN
-            RAISE_APPLICATION_ERROR(-20008, 'Out Time must be after In Time.');
-        END IF;
-    END IF;
-
-    -- For 'Leave' and 'Absent', in_time and out_time must be NULL
-    IF LOWER(:NEW.status) IN ('leave', 'absent') THEN
-        IF :NEW.in_time IS NOT NULL OR :NEW.out_time IS NOT NULL THEN
-            RAISE_APPLICATION_ERROR(-20009, 'In Time and Out Time must be null for Leave or Absent status.');
-        END IF;
-    END IF;
-END;
-/
-
-CREATE OR REPLACE TRIGGER trg_validate_out_time
-BEFORE UPDATE OF out_time ON employee_attendance
-FOR EACH ROW
-BEGIN
-    -- Validate out_time is not null
-    IF :NEW.out_time IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20008, 'Out Time cannot be null when updating.');
-    END IF;
-
-    -- Ensure in_time exists first
-    IF :OLD.in_time IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20009, 'Cannot set Out Time without In Time.');
-    END IF;
-
-    -- Ensure out_time is after in_time
-    IF :NEW.out_time <= :OLD.in_time THEN
-        RAISE_APPLICATION_ERROR(-20010, 'Out Time must be later than In Time.');
-    END IF;
-
---    IF TO_CHAR(:NEW.out_time, 'HH24:MI') > '17:00' THEN
---        RAISE_APPLICATION_ERROR(-20011, 'Out Time cannot be later than 22:00.');
+--
+--        -- In-time must be between 09:00 and 11:00
+----        IF TO_CHAR(:NEW.in_time, 'HH24:MI') NOT BETWEEN '0:00' AND '11:00' THEN
+----            RAISE_APPLICATION_ERROR(-20007, 'In Time must be between 09:00 and 11:00 for Present employees.');
+----        END IF;
+--
+--        -- If out_time is provided, it must be after in_time
+--        IF :NEW.out_time IS NOT NULL AND :NEW.out_time <= :NEW.in_time THEN
+--            RAISE_APPLICATION_ERROR(-20008, 'Out Time must be after In Time.');
+--        END IF;
 --    END IF;
-END;
-/
+--
+--    -- For 'Leave' and 'Absent', in_time and out_time must be NULL
+--    IF LOWER(:NEW.status) IN ('leave', 'absent') THEN
+--        IF :NEW.in_time IS NOT NULL OR :NEW.out_time IS NOT NULL THEN
+--            RAISE_APPLICATION_ERROR(-20009, 'In Time and Out Time must be null for Leave or Absent status.');
+--        END IF;
+--    END IF;
+--END;
+--/
+--
+--CREATE OR REPLACE TRIGGER trg_validate_out_time
+--BEFORE UPDATE OF out_time ON employee_attendance
+--FOR EACH ROW
+--BEGIN
+--    -- Validate out_time is not null
+--    IF :NEW.out_time IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20008, 'Out Time cannot be null when updating.');
+--    END IF;
+--
+--    -- Ensure in_time exists first
+--    IF :OLD.in_time IS NULL THEN
+--        RAISE_APPLICATION_ERROR(-20009, 'Cannot set Out Time without In Time.');
+--    END IF;
+--
+--    -- Ensure out_time is after in_time
+--    IF :NEW.out_time <= :OLD.in_time THEN
+--        RAISE_APPLICATION_ERROR(-20010, 'Out Time must be later than In Time.');
+--    END IF;
+--
+----    IF TO_CHAR(:NEW.out_time, 'HH24:MI') > '17:00' THEN
+----        RAISE_APPLICATION_ERROR(-20011, 'Out Time cannot be later than 22:00.');
+----    END IF;
+--END;
+--/
+
+--ALTER TABLE Employee_Attendance DISABLE ALL TRIGGERS;
 
 CREATE OR REPLACE TRIGGER trg_check_leave_type_exists
 BEFORE INSERT OR UPDATE ON leave_type_master
