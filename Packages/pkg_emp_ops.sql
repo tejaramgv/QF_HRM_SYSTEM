@@ -86,6 +86,17 @@ PROCEDURE apply_leave (
     p_end_date      IN DATE,
     p_reason        IN VARCHAR2
 );
+
+ PROCEDURE search_leave_info (
+    p_employee_id    IN NUMBER   DEFAULT NULL,
+    p_employee_name  IN VARCHAR2 DEFAULT NULL,
+    p_manager_id     IN NUMBER   DEFAULT NULL,
+    p_manager_name   IN VARCHAR2 DEFAULT NULL,
+    p_leave_type     IN VARCHAR2 DEFAULT NULL,
+    p_status         IN VARCHAR2 DEFAULT NULL,
+    p_output_mode    IN VARCHAR2 DEFAULT 'TABLE'   -- 'TABLE' or 'DETAILS'
+
+);
 END pkg_emp_ops;
 /   
 
@@ -468,7 +479,7 @@ BEGIN
             WHERE d.department_id = p_department_id;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('â?Œ Provided department ID ' || p_department_id || ' not found in master data.');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Provided department ID ' || p_department_id || ' not found in master data.');
 
                 RETURN;
         END;
@@ -481,7 +492,7 @@ BEGIN
               AND UPPER(masterdata_value) = UPPER(v_existing_role);
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('â?Œ Current role "' || INITCAP(v_existing_role) || '" not found in master data.');
+                DBMS_OUTPUT.PUT_LINE('ï¿½?ï¿½ Current role "' || INITCAP(v_existing_role) || '" not found in master data.');
 
                 RETURN;
         END;
@@ -2334,6 +2345,121 @@ BEGIN
 
     DBMS_OUTPUT.PUT_LINE('All unmarked employees have been marked as Absent for today.');
 END;
+
+ PROCEDURE search_leave_info (
+    p_employee_id    IN NUMBER   DEFAULT NULL,
+    p_employee_name  IN VARCHAR2 DEFAULT NULL,
+    p_manager_id     IN NUMBER   DEFAULT NULL,
+    p_manager_name   IN VARCHAR2 DEFAULT NULL,
+    p_leave_type     IN VARCHAR2 DEFAULT NULL,
+    p_status         IN VARCHAR2 DEFAULT NULL,
+        p_output_mode    IN VARCHAR2 DEFAULT 'TABLE'   -- 'TABLE' or 'DETAILS'
+
+) IS
+    v_count NUMBER := 0;
+    v_header_printed BOOLEAN := FALSE;
+BEGIN
+    FOR rec IN (
+        SELECT la.leave_id,
+               c.first_name || ' ' || c.last_name AS employee_name,
+               lt.leave_type,
+               la.start_date,
+               la.end_date,
+               CASE 
+                   WHEN la.status = 'Pending' THEN 'In Progress'
+                   ELSE la.status
+               END AS status,
+               NVL(m.first_name || ' ' || m.last_name, 'N/A') AS manager_name,
+               la.reason,
+               la.applied_date,
+               NVL(lb.balance_days, 0) AS remaining_balance
+        FROM leave_application la
+        JOIN employee e ON la.employee_id = e.employee_id
+        JOIN candidates c ON e.candidate_id = c.candidate_id
+        JOIN leave_type_master lt ON la.leave_type_id = lt.leave_type_id
+        LEFT JOIN employee emgr ON la.approved_by = emgr.employee_id
+        LEFT JOIN candidates m ON emgr.candidate_id = m.candidate_id
+        LEFT JOIN leave_balance lb 
+               ON lb.employee_id = la.employee_id 
+              AND lb.leave_type_id = la.leave_type_id 
+              AND lb.leave_year = EXTRACT(YEAR FROM la.start_date)
+        WHERE (p_employee_id IS NULL OR la.employee_id = p_employee_id)
+          AND (p_employee_name IS NULL OR UPPER(c.first_name || ' ' || c.last_name) LIKE UPPER('%' || p_employee_name || '%'))
+          AND (p_manager_id IS NULL OR la.approved_by = p_manager_id)
+          AND (p_manager_name IS NULL OR UPPER(m.first_name || ' ' || m.last_name) LIKE UPPER('%' || p_manager_name || '%'))
+          AND (p_leave_type IS NULL OR UPPER(lt.leave_type) = UPPER(p_leave_type))
+          AND (p_status IS NULL OR 
+              UPPER(CASE WHEN la.status = 'Pending' THEN 'In Progress' ELSE la.status END) = UPPER(p_status))
+        ORDER BY la.applied_date DESC
+    ) LOOP
+        v_count := v_count + 1;
+  IF UPPER(p_output_mode) = 'TABLE' AND NOT v_header_printed THEN
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD('Leave ID', 8) || ' | ' ||
+                RPAD('Employee', 20) || ' | ' ||
+                RPAD('Type', 15) || ' | ' ||
+                RPAD('Dates', 25) || ' | ' ||
+                RPAD('Status', 10) || ' | ' ||
+                RPAD('Approved/Rejected By', 20) || ' | ' ||
+                RPAD('Balance', 12) || ' | ' ||
+                'Applied On'
+            );
+            DBMS_OUTPUT.PUT_LINE(RPAD('-',180,'-')); -- separator
+            v_header_printed := TRUE;
+        END IF;
+
+        -- âœ… Tabular output
+        IF UPPER(p_output_mode) = 'TABLE' THEN
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(rec.leave_id, 8) || ' | ' ||
+                RPAD(rec.employee_name, 20) || ' | ' ||
+                RPAD(rec.leave_type, 15) || ' | ' ||
+                TO_CHAR(rec.start_date, 'DD-MON-YYYY') || ' â†’ ' || TO_CHAR(rec.end_date, 'DD-MON-YYYY') || ' | ' ||
+                RPAD(rec.status, 10) || ' | ' ||
+                RPAD(rec.manager_name, 20) || ' | ' ||
+                RPAD(rec.remaining_balance || ' days', 12) || ' | ' ||
+                TO_CHAR(rec.applied_date, 'DD-MON-YYYY')
+            );
+
+        -- âœ… Narrative output
+        ELSE
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------------------');
+DBMS_OUTPUT.PUT_LINE('Leave Request #' || rec.leave_id || ':');
+DBMS_OUTPUT.PUT_LINE(rec.employee_name || 
+    ' has applied for ' || rec.leave_type || '.');
+
+DBMS_OUTPUT.PUT_LINE('The leave period is from ' || 
+    TO_CHAR(rec.start_date, 'DD-MON-YYYY') || 
+    ' to ' || TO_CHAR(rec.end_date, 'DD-MON-YYYY') || 
+    ' (' || (rec.end_date - rec.start_date + 1) || ' days).');
+
+DBMS_OUTPUT.PUT_LINE('Status of this application is: ' || rec.status || '.');
+
+IF rec.manager_name IS NOT NULL THEN
+    DBMS_OUTPUT.PUT_LINE('The leave was '||rec.status||' by: ' || rec.manager_name || '.');
+ELSE
+    DBMS_OUTPUT.PUT_LINE('No manager has reviewed this leave yet.');
+END IF;
+
+IF rec.reason IS NOT NULL THEN
+    DBMS_OUTPUT.PUT_LINE('Reason mentioned: "' || rec.reason || '".');
+ELSE
+    DBMS_OUTPUT.PUT_LINE('No reason provided by the employee.');
+END IF;
+
+DBMS_OUTPUT.PUT_LINE('The employee still has ' || rec.remaining_balance || 
+    ' days of ' || rec.leave_type || ' remaining in balance.');
+DBMS_OUTPUT.PUT_LINE('This request was submitted on ' || TO_CHAR(rec.applied_date, 'DD-MON-YYYY') || '.');
+
+        END IF;
+
+    END LOOP;
+
+    IF v_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE(' No leave applications found with the given criteria.');
+    END IF;
+END;
+
 
 
 END pkg_emp_ops;

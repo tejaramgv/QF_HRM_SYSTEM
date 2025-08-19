@@ -106,15 +106,15 @@ VALUES (92, 'LEAVE_TYPE', 'Loss of Pay', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
 VALUES (93, 'LEAVE_TYPE', 'Bereavement ', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
-VALUES (94, 'JOB_TITLE', 'CEO', NULL);  -- CEO doesn�t belong under any department
+VALUES (95, 'JOB_TITLE', 'CEO', NULL);  -- CEO doesn�t belong under any department
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (95, 'DEPARTMENT', 'Executive Management', NULL);
 
 select * from master_data;
 
 -- Software Engineer -> Engineering
 UPDATE master_data
-SET parent_id = 28
-WHERE masterdata_type = 'JOB_TITLE' AND masterdata_value = 'Software Engineer';
+SET masterdata_value= 'Senior'
+WHERE masterdata_id=38;
 
 -- HR Executive -> HR
 UPDATE master_data
@@ -348,18 +348,15 @@ INSERT INTO candidates (
     'Passport', 'P1234567', 'MBA', 'IIM Bangalore', 9.5,
     'Bangalore', 'India', 'Infosys', 2500000, 5000000,
     25, 'Business Management, Leadership, Strategy', 'Selected', NULL,
-    'Active', 'M', 'CEO', 9876543210
+    'Active', 'M', 'CEO', 9876343211
 );
 
-<<<<<<< HEAD
 select * from candidates;
 --candidate to emp conversion
 execute  source_requirement.promote_candidate_to_employee(81, 11, 4500000);
-=======
 select * from employee;
 --candidate to emp conversion
 
->>>>>>> 66fa1191108c95d079876ae46a5bf8fe78c11b7e
 execute  source_requirement.promote_candidate_to_employee(1, 3, 680000);
 execute  source_requirement.promote_candidate_to_employee(2, 3, 980000);
 execute  source_requirement.promote_candidate_to_employee(3, 3, 680000);
@@ -421,7 +418,7 @@ select * from candidates;
 --TRUNCATE TABLE candidates;
 --TRUNCATE TABLE Employee;
 --TRUNCATE TABLE Department;
-select * from candidates;
+select * from leave_balance;
 
 
 -- Casual Leave (paid, allowed for all, carry forward allowed)
