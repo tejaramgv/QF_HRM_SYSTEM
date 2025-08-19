@@ -1818,6 +1818,19 @@ IS
     v_sick_used      NUMBER := 0;
     v_lop_used       NUMBER := 0;
 
+v_maternity_used   NUMBER := 0;
+v_paternity_used   NUMBER := 0;
+
+v_casual_balance   NUMBER := 0;
+v_sick_balance     NUMBER := 0;
+v_maternity_balance NUMBER := 0;
+v_paternity_balance NUMBER := 0;
+
+v_leave_type       VARCHAR2(20);
+
+        v_manager_name VARCHAR2(100);
+        v_candidate_id NUMBER;
+
     v_remaining_days NUMBER := 0;
 
     -- Function to count weekdays (Monday to Friday)
@@ -1935,21 +1948,65 @@ BEGIN
         DBMS_OUTPUT.PUT_LINE('The action provided is invalid. Please use either "Approved" or "Rejected".');
         RETURN;
     END IF;
+    
 
     -- Step 4: Validate manager
+BEGIN
+    -- Step 1: Get the actual manager of the employee
+    SELECT manager_id 
+    INTO v_manager_id 
+    FROM employee 
+    WHERE employee_id = v_employee_id;
+
+    -- Step 2: Get candidate_id and name of the manager who tried to approve
+    DECLARE
+        v_wrong_manager_name VARCHAR2(100);
+        v_actual_manager_name VARCHAR2(100);
+        v_actual_candidate_id NUMBER;
+        v_wrong_candidate_id NUMBER;
     BEGIN
-        SELECT manager_id INTO v_manager_id FROM employee WHERE employee_id=v_employee_id;
+        -- Get wrong approver details
+        SELECT candidate_id
+        INTO v_wrong_candidate_id
+        FROM employee
+        WHERE employee_id = p_approved_by;
+
+        SELECT INITCAP(first_name || ' ' || last_name)
+        INTO v_wrong_manager_name
+        FROM candidates
+        WHERE candidate_id = v_wrong_candidate_id;
+
+        -- Get actual manager details
+        IF v_manager_id IS NOT NULL THEN
+            SELECT candidate_id
+            INTO v_actual_candidate_id
+            FROM employee
+            WHERE employee_id = v_manager_id;
+
+            SELECT INITCAP(first_name || ' ' || last_name)
+            INTO v_actual_manager_name
+            FROM candidates
+            WHERE candidate_id = v_actual_candidate_id;
+        END IF;
+
+        -- Step 3: Validate manager assignment
         IF v_manager_id IS NULL THEN
-            DBMS_OUTPUT.PUT_LINE('The employee does not have a manager assigned. Approval cannot be done.');
+            DBMS_OUTPUT.PUT_LINE(' Leave approval cannot proceed. The employee does not have a manager assigned.');
             RETURN;
         ELSIF v_manager_id != p_approved_by THEN
-            DBMS_OUTPUT.PUT_LINE('You are not authorized to approve this leave because you are not the manager of the employee.');
+            DBMS_OUTPUT.PUT_LINE('Leave approval failed: You are not authorized to approve this leave.');
+            DBMS_OUTPUT.PUT_LINE('Employee: ' || v_employee_id);
+            DBMS_OUTPUT.PUT_LINE('Actual manager of the employee: ' || NVL(v_actual_manager_name,'Unknown'));
+            DBMS_OUTPUT.PUT_LINE('You attempted to approve as: ' || NVL(v_wrong_manager_name,'Unknown'));
             RETURN;
         END IF;
-    EXCEPTION WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('Employee data not found. Please check the employee details.');
-        RETURN;
+
+    EXCEPTION 
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE(' Leave approval failed: Employee or manager records not found. Please check the system.');
+            RETURN;
     END;
+END;
 
     -- Step 5: Fetch leave type IDs
     SELECT leave_type_id INTO v_casual_id FROM leave_type_master WHERE UPPER(leave_type)='CASUAL';
@@ -1957,56 +2014,182 @@ BEGIN
     SELECT leave_type_id INTO v_lop_id FROM leave_type_master WHERE UPPER(leave_type)='LOSS OF PAY';
     SELECT leave_type_id INTO v_maternity_id FROM leave_type_master WHERE UPPER(leave_type)='MATERNITY';
     SELECT leave_type_id INTO v_paternity_id FROM leave_type_master WHERE UPPER(leave_type)='PATERNITY';
+    SELECT leave_type
+    INTO v_leave_type
+    FROM leave_type_master
+    WHERE leave_type_id = v_leave_type_id;
 
     -- Step 6: Calculate leave days and validate limits
-    IF v_leave_type_id IN (v_maternity_id,v_paternity_id) THEN
-        v_days := count_all_days(v_start_date,v_end_date);
-        SELECT annual_limit INTO v_annual_limit
-        FROM leave_type_master
-        WHERE leave_type_id=v_leave_type_id;
+--    IF v_leave_type_id IN (v_maternity_id,v_paternity_id) THEN
+--        v_days := count_all_days(v_start_date,v_end_date);
+--        SELECT annual_limit INTO v_annual_limit
+--        FROM leave_type_master
+--        WHERE leave_type_id=v_leave_type_id;
+--
+--        IF v_days>v_annual_limit THEN
+--            DBMS_OUTPUT.PUT_LINE('The requested maternity/paternity leave duration ('||v_days||' days) exceeds the maximum allowed limit ('||v_annual_limit||' days). Please adjust the leave duration.');
+--            RETURN;
+--        END IF;
+--
+--    ELSE
+--        v_days := count_weekdays(v_start_date,v_end_date);
+--
+--        IF v_days<=0 THEN
+--            DBMS_OUTPUT.PUT_LINE('The leave duration must include at least one working day (Monday to Friday). Please adjust the dates.');
+--            RETURN;
+--        END IF;
+--
+--        IF v_start_date<TRUNC(SYSDATE) THEN
+--            DBMS_OUTPUT.PUT_LINE('The leave cannot start in the past. Please select a start date from today or later.');
+--            RETURN;
+--        END IF;
+--
+--        -- Deduct balances with fallback
+--        deduct_leave(v_leave_type_id,v_days);
+--    END IF;
+-- Step 6: Calculate leave days and validate limits (No deduction here)
+IF v_leave_type_id IN (v_maternity_id, v_paternity_id) THEN
+    v_days := count_all_days(v_start_date, v_end_date);
 
-        IF v_days>v_annual_limit THEN
-            DBMS_OUTPUT.PUT_LINE('The requested maternity/paternity leave duration ('||v_days||' days) exceeds the maximum allowed limit ('||v_annual_limit||' days). Please adjust the leave duration.');
-            RETURN;
-        END IF;
+    SELECT annual_limit INTO v_annual_limit
+    FROM leave_type_master
+    WHERE leave_type_id = v_leave_type_id;
 
-    ELSE
-        v_days := count_weekdays(v_start_date,v_end_date);
+    -- check balance for maternity/paternity
+    SELECT NVL(balance_days,0)
+    INTO v_balance
+    FROM leave_balance
+    WHERE employee_id = v_employee_id
+      AND leave_type_id = v_leave_type_id
+      AND leave_year = EXTRACT(YEAR FROM v_start_date);
 
-        IF v_days<=0 THEN
-            DBMS_OUTPUT.PUT_LINE('The leave duration must include at least one working day (Monday to Friday). Please adjust the dates.');
-            RETURN;
-        END IF;
-
-        IF v_start_date<TRUNC(SYSDATE) THEN
-            DBMS_OUTPUT.PUT_LINE('The leave cannot start in the past. Please select a start date from today or later.');
-            RETURN;
-        END IF;
-
-        -- Deduct balances with fallback
-        deduct_leave(v_leave_type_id,v_days);
+    IF v_days > v_balance THEN
+        DBMS_OUTPUT.PUT_LINE(
+            ' Error: Requested '||v_days||' days, but only '||v_balance||
+            ' days are available for '||INITCAP(v_leave_type)||'. Please apply remaining as LOP.'
+        );
+        RETURN;
     END IF;
 
-    -- Step 7: Approve or Reject leave
-    IF UPPER(p_action)='APPROVED' THEN
-        UPDATE leave_application
-        SET status='Approved', approved_by=p_approved_by
-        WHERE leave_id=p_leave_id;
+ELSE
+    v_days := count_weekdays(v_start_date, v_end_date);
 
-        DBMS_OUTPUT.PUT_LINE('Leave has been approved successfully.');
-        DBMS_OUTPUT.PUT_LINE('Summary of leave deduction:');
-        DBMS_OUTPUT.PUT_LINE('Total leave days requested: ' || v_days);
-        DBMS_OUTPUT.PUT_LINE('Casual leave days used: ' || v_casual_used);
-        DBMS_OUTPUT.PUT_LINE('Sick leave days used: ' || v_sick_used);
-        DBMS_OUTPUT.PUT_LINE('Loss of Pay days applied: ' || v_lop_used);
-
-    ELSE
-        UPDATE leave_application
-        SET status='Rejected', approved_by=p_approved_by
-        WHERE leave_id=p_leave_id;
-
-        DBMS_OUTPUT.PUT_LINE('The leave has been rejected by the manager. The employee will be notified.');
+    IF v_days <= 0 THEN
+        DBMS_OUTPUT.PUT_LINE(' Error: Leave request invalid. No working days (Mon–Fri) in the selected period.');
+        RETURN;
     END IF;
+
+    IF v_start_date < TRUNC(SYSDATE) THEN
+        DBMS_OUTPUT.PUT_LINE(
+            'Error: Leave request invalid. Start date ('||TO_CHAR(v_start_date,'DD-MON-YYYY')||') is in the past.'
+        );
+        RETURN;
+    END IF;
+
+    -- check balance
+    SELECT NVL(balance_days,0)
+    INTO v_balance
+    FROM leave_balance
+    WHERE employee_id = v_employee_id
+      AND leave_type_id = v_leave_type_id
+      AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
+    IF v_leave_type_id != v_lop_id AND v_days > v_balance THEN
+        DBMS_OUTPUT.PUT_LINE(
+            ' Error: Requested '||v_days||' days, but only '||v_balance||
+            ' days are available for '||INITCAP(v_leave_type)||'. Please apply remaining as LOP.'
+        );
+        RETURN;
+    END IF;
+END IF;
+
+------------------------------------------------------------
+-- Step 7: Approve or Reject leave (Update balances only if approved)
+IF UPPER(p_action)='APPROVED' THEN
+
+    -- Deduct leave balances
+    IF v_leave_type_id = v_lop_id THEN
+        v_lop_used := v_days;
+    ELSIF v_leave_type_id = v_casual_id THEN
+        v_casual_used := v_days;
+        v_casual_balance := v_balance - v_days;
+    ELSIF v_leave_type_id = v_sick_id THEN
+        v_sick_used := v_days;
+        v_sick_balance := v_balance - v_days;
+    ELSIF v_leave_type_id = v_maternity_id THEN
+        v_maternity_used := v_days;
+        v_maternity_balance := v_balance - v_days;
+    ELSIF v_leave_type_id = v_paternity_id THEN
+        v_paternity_used := v_days;
+        v_paternity_balance := v_balance - v_days;
+    END IF;
+
+    -- Update leave_balance table
+    IF v_leave_type_id != v_lop_id THEN
+        UPDATE leave_balance
+        SET balance_days = balance_days - v_days,
+            last_updated = SYSDATE
+        WHERE employee_id = v_employee_id
+          AND leave_type_id = v_leave_type_id
+          AND leave_year = EXTRACT(YEAR FROM v_start_date);
+    END IF;
+
+    -- Mark leave as approved
+    UPDATE leave_application
+    SET status='Approved', approved_by=p_approved_by
+    WHERE leave_id=p_leave_id;
+
+    -- Display summary
+    DBMS_OUTPUT.PUT_LINE(' Leave Approved Successfully.');
+    DBMS_OUTPUT.PUT_LINE(' Summary:');
+    DBMS_OUTPUT.PUT_LINE('Total leave days requested: ' || v_days);
+
+    IF v_casual_used > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Casual leave approved: ' || v_casual_used ||
+                             ' (Remaining balance: ' || v_casual_balance || ')');
+    END IF;
+
+    IF v_sick_used > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Sick leave approved: ' || v_sick_used ||
+                             ' (Remaining balance: ' || v_sick_balance || ')');
+    END IF;
+
+    IF v_maternity_used > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Maternity leave approved: ' || v_maternity_used ||
+                             ' (Remaining balance: ' || v_maternity_balance || ')');
+    END IF;
+
+    IF v_paternity_used > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Paternity leave approved: ' || v_paternity_used ||
+                             ' (Remaining balance: ' || v_paternity_balance || ')');
+    END IF;
+
+    IF v_lop_used > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Loss of Pay applied: ' || v_lop_used || ' day(s)');
+    END IF;
+
+ELSE
+    -- Leave is rejected, no deduction
+            -- Find candidate_id of the manager
+        SELECT candidate_id
+        INTO v_candidate_id
+        FROM employee
+        WHERE employee_id = p_approved_by;
+
+        -- Get manager's name from candidate table
+        SELECT INITCAP(first_name || ' ' || last_name)
+        INTO v_manager_name
+        FROM candidates
+        WHERE candidate_id = v_candidate_id;
+
+
+    UPDATE leave_application
+    SET status='Rejected', approved_by=p_approved_by
+    WHERE leave_id=p_leave_id;
+
+        DBMS_OUTPUT.PUT_LINE('Leave request has been rejected.');
+        DBMS_OUTPUT.PUT_LINE('Rejected by: ' || v_manager_name);
+END IF;
 
     COMMIT;
 
