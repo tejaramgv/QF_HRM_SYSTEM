@@ -79,11 +79,11 @@ PROCEDURE process_leave (
     p_action           IN VARCHAR2,       -- 'Approved' or 'Rejected'
     p_approved_by      IN NUMBER          -- manager's employee_id
 );
-PROCEDURE apply_leave (
+ PROCEDURE apply_leave (
     p_employee_id   IN NUMBER,
     p_leave_type    IN VARCHAR2,  -- e.g., 'Casual'
-    p_start_date    IN DATE,
-    p_end_date      IN DATE,
+    p_start_date    IN VARCHAR2,
+    p_end_date      IN VARCHAR2,
     p_reason        IN VARCHAR2
 );
 
@@ -96,6 +96,10 @@ PROCEDURE apply_leave (
     p_status         IN VARCHAR2 DEFAULT NULL,
     p_output_mode    IN VARCHAR2 DEFAULT 'TABLE'   -- 'TABLE' or 'DETAILS'
 
+);
+
+PROCEDURE show_leave_balance (
+    p_employee_id IN NUMBER
 );
 END pkg_emp_ops;
 /   
@@ -2626,6 +2630,76 @@ DBMS_OUTPUT.PUT_LINE('This request was submitted on ' || TO_CHAR(rec.applied_dat
         DBMS_OUTPUT.PUT_LINE(' No leave applications found with the given criteria.');
     END IF;
 END;
+PROCEDURE show_leave_balance (
+    p_employee_id IN NUMBER
+)
+IS
+    v_doj DATE;
+    v_current_year NUMBER := EXTRACT(YEAR FROM SYSDATE);
+    v_months_left NUMBER;
+
+    CURSOR c_leave_balance IS
+        SELECT lt.leave_type,
+               lt.annual_limit,
+               lb.balance_days,
+               e.date_of_joining
+        FROM leave_balance lb
+        JOIN leave_type_master lt
+          ON lb.leave_type_id = lt.leave_type_id
+        JOIN employee e
+          ON lb.employee_id = e.employee_id
+        WHERE lb.employee_id = p_employee_id
+          AND lb.leave_year = v_current_year;
+BEGIN
+    -- Get DOJ
+    SELECT date_of_joining INTO v_doj
+    FROM employee
+    WHERE employee_id = p_employee_id;
+
+    DBMS_OUTPUT.PUT_LINE('Leave Balance Information for Employee ID: ' || p_employee_id);
+    DBMS_OUTPUT.PUT_LINE('-------------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE(RPAD('Leave Type',15) || ' | ' ||
+                         LPAD('Total',5) || ' | ' ||
+                         LPAD('Used',5) || ' | ' ||
+                         LPAD('Remaining',9));
+    DBMS_OUTPUT.PUT_LINE('-------------------------------------------------------------');
+
+    FOR rec IN c_leave_balance LOOP
+        DECLARE
+            v_total     NUMBER;
+            v_used      NUMBER;
+            v_remaining NUMBER;
+        BEGIN
+            -- Handle LOP separately
+            IF rec.leave_type = 'LOP' THEN
+                v_total := 0;
+                v_used := rec.balance_days; -- assuming LOP taken is stored positive
+                v_remaining := 0;
+
+            ELSE
+                -- Pro-rate if joined this year (but not for Maternity/Paternity)
+                IF EXTRACT(YEAR FROM v_doj) = v_current_year
+                   AND rec.leave_type NOT IN ('Maternity','Paternity') THEN
+                    v_months_left := 12 - EXTRACT(MONTH FROM v_doj) + 1;
+                    v_total := ROUND(rec.annual_limit * v_months_left / 12);
+                ELSE
+                    v_total := rec.annual_limit;
+                END IF;
+
+                -- Calculate used and remaining
+                v_used := GREATEST(0, (v_total - rec.balance_days));
+                v_remaining := LEAST(v_total, rec.balance_days);
+            END IF;
+
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(rec.leave_type, 15) || ' | ' ||
+                LPAD(v_total, 5) || ' | ' ||
+                LPAD(v_used, 5) || ' | ' ||
+                LPAD(v_remaining, 9)
+            );
+        END;
+    END LOOP;
+END show_leave_balance;
 
 
 
