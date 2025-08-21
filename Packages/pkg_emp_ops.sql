@@ -1437,9 +1437,18 @@ BEGIN
         v_errors := v_errors || '- The start date cannot be after the end date.' || CHR(10);
     END IF;
 
-    IF v_start_date_dt  < TRUNC(SYSDATE) THEN
-        v_errors := v_errors || '- The start date cannot be in the past. Please choose today or a future date.' || CHR(10);
+    IF UPPER(p_leave_type) IN ('SICK', 'BEREAVEMENT') THEN
+        -- Sick & Bereavement: allow any past date up to today
+        IF v_start_date_dt > TRUNC(SYSDATE) THEN
+            v_errors := v_errors || '- "' || p_leave_type || '" leave cannot be applied for future dates.' || CHR(10);
+        END IF;
+    ELSE
+        -- All other leave types: only today or future
+        IF v_start_date_dt < TRUNC(SYSDATE) THEN
+            v_errors := v_errors || '- "' || p_leave_type || '" leave cannot be applied for past dates.' || CHR(10);
+        END IF;
     END IF;
+
     
     -- 4. Restrict weekends for non-maternity/paternity leaves
     IF p_leave_type NOT IN ('Maternity', 'Paternity') THEN
@@ -1865,20 +1874,20 @@ v_leave_type       VARCHAR2(20);
 
     -- Function to count weekdays (Monday to Friday)
     FUNCTION count_weekdays(start_date DATE, end_date DATE) RETURN NUMBER IS
-        v_count NUMBER := 0;
-        v_curr DATE := start_date;
-        v_day NUMBER;
+    v_count NUMBER := 0;
+    v_curr  DATE := start_date;
+    v_day   VARCHAR2(3);
     BEGIN
         WHILE v_curr <= end_date LOOP
-            v_day := TO_CHAR(v_curr,'D');
-            IF v_day BETWEEN 2 AND 6 THEN
+            v_day := UPPER(TO_CHAR(v_curr, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH'));
+            IF v_day IN ('MON','TUE','WED','THU','FRI') THEN
                 v_count := v_count + 1;
             END IF;
             v_curr := v_curr + 1;
         END LOOP;
         RETURN v_count;
     END;
-
+    
     -- Function to count all days including weekends
     FUNCTION count_all_days(start_date DATE, end_date DATE) RETURN NUMBER IS
     BEGIN
@@ -2027,7 +2036,7 @@ BEGIN
             DBMS_OUTPUT.PUT_LINE('Leave approval failed: You are not authorized to approve this leave.');
             DBMS_OUTPUT.PUT_LINE('Employee: ' || v_employee_id);
             DBMS_OUTPUT.PUT_LINE('Actual manager of the employee: ' || NVL(v_actual_manager_name,'Unknown'));
-            DBMS_OUTPUT.PUT_LINE('You attempted to approve as: ' || NVL(v_wrong_manager_name,'Unknown'));
+--            DBMS_OUTPUT.PUT_LINE('You attempted to approve as: ' || NVL(v_wrong_manager_name,'Unknown'));
             RETURN;
         END IF;
 
@@ -2109,12 +2118,20 @@ ELSE
         RETURN;
     END IF;
 
-    IF v_start_date < TRUNC(SYSDATE) THEN
+--    IF v_start_date < TRUNC(SYSDATE) THEN
+--        DBMS_OUTPUT.PUT_LINE(
+--            'Error: Leave request invalid. Start date ('||TO_CHAR(v_start_date,'DD-MON-YYYY')||') is in the past.'
+--        );
+--        RETURN;
+--    END IF;
+    IF v_end_date < v_start_date THEN
         DBMS_OUTPUT.PUT_LINE(
-            'Error: Leave request invalid. Start date ('||TO_CHAR(v_start_date,'DD-MON-YYYY')||') is in the past.'
+            'Error: Leave request invalid. End date ('||TO_CHAR(v_end_date,'DD-MON-YYYY')||
+            ') cannot be before start date ('||TO_CHAR(v_start_date,'DD-MON-YYYY')||').'
         );
         RETURN;
     END IF;
+
 
     -- check balance
     SELECT NVL(balance_days,0)
@@ -2536,10 +2553,7 @@ BEGIN
                lt.leave_type,
                la.start_date,
                la.end_date,
-               CASE 
-                   WHEN la.status = 'Pending' THEN 'In Progress'
-                   ELSE la.status
-               END AS status,
+               la.status AS status,
                NVL(m.first_name || ' ' || m.last_name, 'N/A') AS manager_name,
                la.reason,
                la.applied_date,
@@ -2559,8 +2573,10 @@ BEGIN
           AND (p_manager_id IS NULL OR la.approved_by = p_manager_id)
           AND (p_manager_name IS NULL OR UPPER(m.first_name || ' ' || m.last_name) LIKE UPPER('%' || p_manager_name || '%'))
           AND (p_leave_type IS NULL OR UPPER(lt.leave_type) = UPPER(p_leave_type))
-          AND (p_status IS NULL OR 
-              UPPER(CASE WHEN la.status = 'Pending' THEN 'In Progress' ELSE la.status END) = UPPER(p_status))
+AND (p_status IS NULL OR 
+     (UPPER(la.status) = UPPER(p_status) OR 
+     (la.status = 'Pending' AND UPPER(p_status) = 'IN PROGRESS')))
+
         ORDER BY la.applied_date DESC
     ) LOOP
         v_count := v_count + 1;
