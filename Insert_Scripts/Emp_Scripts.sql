@@ -1,8 +1,9 @@
 EXEC mark_in_time(1071);
 select * from employee_attendance;
+truncate table employee_attendance;
 select * from employee;
 BEGIN
-    mark_in_time(1072); 
+    mark_in_time(1326); 
     mark_out_time(1072); 
 END;
 
@@ -11,9 +12,9 @@ BEGIN
 END;
 
 BEGIN
-    mark_in_time(1072);
+    pkg_emp_ops.mark_in_time(1326);
 END;
-
+set serveroutput on;
 BEGIN
     mark_out_time(1074); 
 END;
@@ -25,6 +26,6 @@ END;
 execute source_requirement.appoint_ceo('Viswanath','Reddy');
 select * from leave_balance;
 
-ALTER TABLE Employee DROP COLUMN First_Name;
-ALTER TABLE Employee DROP COLUMN Last_Name;
-ALTER TABLE Employee DROP COLUMN Gender;
+--ALTER TABLE Employee DROP COLUMN First_Name;
+--ALTER TABLE Employee DROP COLUMN Last_Name;
+--ALTER TABLE Employee DROP COLUMN Gender;

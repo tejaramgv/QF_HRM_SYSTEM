@@ -77,7 +77,9 @@ PROCEDURE mark_absentees;
 PROCEDURE process_leave (
     p_leave_id         IN NUMBER,
     p_action           IN VARCHAR2,       -- 'Approved' or 'Rejected'
-    p_approved_by      IN NUMBER          -- manager's employee_id
+    p_approved_by      IN NUMBER,         -- manager's employee_id
+    p_rejection_reason IN VARCHAR2 DEFAULT NULL  -- New parameter
+
 );
  PROCEDURE apply_leave (
     p_employee_id   IN NUMBER,
@@ -1829,7 +1831,9 @@ END apply_leave;
 PROCEDURE process_leave (
     p_leave_id    IN NUMBER,
     p_action      IN VARCHAR2,   -- 'Approved' or 'Rejected'
-    p_approved_by IN NUMBER      -- manager's employee_id
+    p_approved_by IN NUMBER,      -- manager's employee_id
+    p_rejection_reason IN VARCHAR2 DEFAULT NULL  -- New parameter
+
 )
 IS
     v_status         VARCHAR2(20);
@@ -1839,6 +1843,8 @@ IS
     v_end_date       DATE;
     v_days           NUMBER := 0;
     v_manager_id     NUMBER;
+    v_role           VARCHAR2(50);
+
 
     -- Leave type IDs
     v_casual_id      NUMBER;
@@ -1987,15 +1993,21 @@ BEGIN
         DBMS_OUTPUT.PUT_LINE('The action provided is invalid. Please use either "Approved" or "Rejected".');
         RETURN;
     END IF;
+        -- Check if rejection reason is provided when status is Rejected
+    IF UPPER(p_action) = 'REJECTED' AND (p_rejection_reason IS NULL OR TRIM(p_rejection_reason) = '') THEN
+        DBMS_OUTPUT.PUT_LINE('Rejection reason is required when rejecting a leave.');
+        RETURN;
+    END IF;
+
     
 
     -- Step 4: Validate manager
 BEGIN
     -- Step 1: Get the actual manager of the employee
-    SELECT manager_id 
-    INTO v_manager_id 
-    FROM employee 
-    WHERE employee_id = v_employee_id;
+  SELECT manager_id, role
+    INTO v_manager_id, v_role
+    FROM employee
+   WHERE employee_id = v_employee_id;
 
     -- Step 2: Get candidate_id and name of the manager who tried to approve
     DECLARE
@@ -2029,9 +2041,28 @@ BEGIN
         END IF;
 
         -- Step 3: Validate manager assignment
+--        IF v_manager_id IS NULL THEN
+--            DBMS_OUTPUT.PUT_LINE(' Leave approval cannot proceed. The employee does not have a manager assigned.');
+--            RETURN;
         IF v_manager_id IS NULL THEN
-            DBMS_OUTPUT.PUT_LINE(' Leave approval cannot proceed. The employee does not have a manager assigned.');
-            RETURN;
+            -- No manager assigned
+            IF UPPER(v_role) = 'CEO' THEN
+                -- CEO must self-approve
+                IF p_approved_by != v_employee_id THEN
+                    DBMS_OUTPUT.PUT_LINE('Leave approval failed: CEO must self-approve their own leave.');
+                    DBMS_OUTPUT.PUT_LINE('Attempted approver: ' || v_wrong_manager_name);
+                    RETURN;
+                ELSE
+                    DBMS_OUTPUT.PUT_LINE('CEO self-approval detected. Proceeding with leave processing.');
+                    -- Continue further processing
+                END IF;
+            ELSE
+                -- Non-CEO employee without a manager: data issue
+                DBMS_OUTPUT.PUT_LINE('Leave approval cannot proceed: Employee has no manager assigned and is not a CEO.');
+                DBMS_OUTPUT.PUT_LINE('Employee ID: ' || v_employee_id);
+                RETURN;
+            END IF;
+
         ELSIF v_manager_id != p_approved_by THEN
             DBMS_OUTPUT.PUT_LINE('Leave approval failed: You are not authorized to approve this leave.');
             DBMS_OUTPUT.PUT_LINE('Employee: ' || v_employee_id);
@@ -2046,6 +2077,50 @@ BEGIN
             RETURN;
     END;
 END;
+-- After Step 4 manager validation (just before fetching leave type IDs)
+
+IF UPPER(p_action) = 'REJECTED' THEN
+    -- Find approver name
+    SELECT candidate_id INTO v_candidate_id
+    FROM employee
+    WHERE employee_id = p_approved_by;
+
+    SELECT INITCAP(first_name || ' ' || last_name)
+    INTO v_manager_name
+    FROM candidates
+    WHERE candidate_id = v_candidate_id;
+
+    -- Update leave as rejected
+    UPDATE leave_application
+    SET status='Rejected',
+        approved_by=p_approved_by,
+        rejection_reason = INITCAP(p_rejection_reason)
+    WHERE leave_id=p_leave_id;
+
+    DBMS_OUTPUT.PUT_LINE('Leave request has been rejected.');
+    DBMS_OUTPUT.PUT_LINE('Rejected by: ' || v_manager_name);
+    DBMS_OUTPUT.PUT_LINE('Reason: ' || p_rejection_reason);
+
+    COMMIT;
+    RETURN; -- IMPORTANT: Exit to skip all further balance checks
+END IF;
+-- Step 4.5: Check if attendance already exists for requested leave dates
+IF UPPER(p_action) = 'APPROVED' THEN
+    DECLARE
+        v_attendance_count NUMBER;
+    BEGIN
+        SELECT COUNT(*)
+        INTO v_attendance_count
+        FROM employee_attendance
+        WHERE employee_id = v_employee_id
+          AND attendance_date BETWEEN v_start_date AND v_end_date;
+
+        IF v_attendance_count > 0 THEN
+            DBMS_OUTPUT.PUT_LINE('Cannot approve leave: Attendance already exists for one or more requested dates.');
+            RETURN;
+        END IF;
+    END;
+END IF;
 
     -- Step 5: Fetch leave type IDs
     SELECT leave_type_id INTO v_casual_id FROM leave_type_master WHERE UPPER(leave_type)='CASUAL';
@@ -2183,7 +2258,8 @@ IF UPPER(p_action)='APPROVED' THEN
 
     -- Mark leave as approved
     UPDATE leave_application
-    SET status='Approved', approved_by=p_approved_by
+    SET status='Approved', approved_by=p_approved_by,
+    rejection_reason = NULL  -- clear if previously set
     WHERE leave_id=p_leave_id;
 
     -- Display summary
@@ -2215,27 +2291,30 @@ IF UPPER(p_action)='APPROVED' THEN
         DBMS_OUTPUT.PUT_LINE('Loss of Pay applied: ' || v_lop_used || ' day(s)');
     END IF;
 
-ELSE
-    -- Leave is rejected, no deduction
-            -- Find candidate_id of the manager
-        SELECT candidate_id
-        INTO v_candidate_id
-        FROM employee
-        WHERE employee_id = p_approved_by;
+--ELSE
+--    -- Leave is rejected, no deduction
+--            -- Find candidate_id of the manager
+--        SELECT candidate_id
+--        INTO v_candidate_id
+--        FROM employee
+--        WHERE employee_id = p_approved_by;
+--
+--        -- Get manager's name from candidate table
+--        SELECT INITCAP(first_name || ' ' || last_name)
+--        INTO v_manager_name
+--        FROM candidates
+--        WHERE candidate_id = v_candidate_id;
+--
+--
+--    UPDATE leave_application
+--    SET status='Rejected', approved_by=p_approved_by,rejection_reason = INITCAP(p_rejection_reason)
+--
+--    WHERE leave_id=p_leave_id;
+--
+--        DBMS_OUTPUT.PUT_LINE('Leave request has been rejected.');
+--        DBMS_OUTPUT.PUT_LINE('Rejected by: ' || v_manager_name);
+--        DBMS_OUTPUT.PUT_LINE('Reason: ' || p_rejection_reason);
 
-        -- Get manager's name from candidate table
-        SELECT INITCAP(first_name || ' ' || last_name)
-        INTO v_manager_name
-        FROM candidates
-        WHERE candidate_id = v_candidate_id;
-
-
-    UPDATE leave_application
-    SET status='Rejected', approved_by=p_approved_by
-    WHERE leave_id=p_leave_id;
-
-        DBMS_OUTPUT.PUT_LINE('Leave request has been rejected.');
-        DBMS_OUTPUT.PUT_LINE('Rejected by: ' || v_manager_name);
 END IF;
 
     COMMIT;
@@ -2312,6 +2391,8 @@ BEGIN
 
     DBMS_OUTPUT.PUT_LINE('In-Time marked successfully for Employee ID ' || p_employee_id || 
                          ' at ' || TO_CHAR(ld_curr_time,'HH24:MI:SS'));
+    COMMIT;
+
 END;
 
 
@@ -2405,6 +2486,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Out-Time recorded successfully for ' || v_employee_name || '.');
     DBMS_OUTPUT.PUT_LINE('Date: ' || TO_CHAR(ld_today,'DD-MON-YYYY'));
     DBMS_OUTPUT.PUT_LINE('Out-Time: ' || TO_CHAR(SYSTIMESTAMP, 'HH24:MI:SS'));
+COMMIT;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
