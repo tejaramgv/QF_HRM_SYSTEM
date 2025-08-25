@@ -26,6 +26,13 @@ PROCEDURE search_performance (
 );
  PROCEDURE salary_analysis;
  PROCEDURE promotion_recommendation;
+ 
+ PROCEDURE promote_employee (
+    p_employee_id IN NUMBER,
+    p_new_band_id IN NUMBER,
+    p_new_salary  IN NUMBER,
+    p_new_role    IN VARCHAR2 DEFAULT NULL
+);
 
 END;
 /
@@ -236,6 +243,36 @@ WHERE (c.years_of_experience + FLOOR(MONTHS_BETWEEN(SYSDATE, e.date_of_joining) 
         DBMS_OUTPUT.PUT_LINE(rec.employee_name || ' eligible for promotion (crossed experience band).');
     END LOOP;
 END;
+
+PROCEDURE promote_employee (
+    p_employee_id IN NUMBER,
+    p_new_band_id IN NUMBER,
+    p_new_salary  IN NUMBER,
+    p_new_role    IN VARCHAR2 DEFAULT NULL
+) IS
+    v_min_salary baseline_salary.min_salary%TYPE;
+    v_max_salary baseline_salary.max_salary%TYPE;
+BEGIN
+    -- Validate salary against band
+    SELECT min_salary, max_salary INTO v_min_salary, v_max_salary
+    FROM baseline_salary
+    WHERE band_id = p_new_band_id;
+
+    IF p_new_salary < v_min_salary OR p_new_salary > v_max_salary THEN
+        DBMS_OUTPUT.PUT_LINE('❌ Salary ' || p_new_salary || ' not valid for band ' || p_new_band_id);
+        RETURN;
+    END IF;
+
+    -- Update
+    UPDATE employee
+    SET band_id = p_new_band_id,
+        salary  = p_new_salary,
+        role    = NVL(p_new_role, role)
+    WHERE employee_id = p_employee_id;
+
+    DBMS_OUTPUT.PUT_LINE('✅ Employee ' || p_employee_id || ' promoted with new band ' || p_new_band_id || ' and salary ' || p_new_salary);
+END;
+
 
 END;
 /
