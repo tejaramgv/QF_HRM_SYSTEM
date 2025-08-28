@@ -21,8 +21,8 @@ PROCEDURE search_performance (
     p_employee_name     IN VARCHAR2 DEFAULT NULL,
     p_year              IN NUMBER DEFAULT NULL,
     p_quarter           IN VARCHAR2 DEFAULT NULL,
-    p_rating_value      IN VARCHAR2 DEFAULT NULL,  -- '1','2','3','4','5'
-    p_rating_desc       IN VARCHAR2 DEFAULT NULL   -- 'Poor','Fair','Satisfactory','Very Good','Excellent'
+    p_rating_value      IN VARCHAR2 DEFAULT NULL,
+    p_rating_desc       IN VARCHAR2 DEFAULT NULL  
 );
  PROCEDURE salary_analysis;
  PROCEDURE promotion_recommendation;
@@ -132,8 +132,8 @@ PROCEDURE search_performance (
     p_employee_name     IN VARCHAR2 DEFAULT NULL,
     p_year              IN NUMBER DEFAULT NULL,
     p_quarter           IN VARCHAR2 DEFAULT NULL,
-    p_rating_value      IN VARCHAR2 DEFAULT NULL,  -- '1','2','3','4','5'
-    p_rating_desc       IN VARCHAR2 DEFAULT NULL   -- 'Poor','Fair','Satisfactory','Very Good','Excellent'
+    p_rating_value      IN VARCHAR2 DEFAULT NULL, 
+    p_rating_desc       IN VARCHAR2 DEFAULT NULL   
 ) IS
  v_found BOOLEAN := FALSE;
 BEGIN
