@@ -2299,7 +2299,7 @@ ELSE
     v_days := count_weekdays(v_start_date, v_end_date);
 
     IF v_days <= 0 THEN
-        DBMS_OUTPUT.PUT_LINE(' Error: Leave request invalid. No working days (Mon–Fri) in the selected period.');
+        DBMS_OUTPUT.PUT_LINE(' Error: Leave request invalid. No working days (Monï¿½Fri) in the selected period.');
         RETURN;
     END IF;
 
@@ -2760,6 +2760,10 @@ BEGIN
                lt.leave_type,
                la.start_date,
                la.end_date,
+               CASE 
+                   WHEN la.status = 'Pending' THEN 'Pending'
+                   ELSE la.status
+               END AS status,
                la.status AS status,
                NVL(m.first_name || ' ' || m.last_name, 'N/A') AS manager_name,
                la.reason,
@@ -2780,11 +2784,17 @@ BEGIN
           AND (p_manager_id IS NULL OR la.approved_by = p_manager_id)
           AND (p_manager_name IS NULL OR UPPER(m.first_name || ' ' || m.last_name) LIKE UPPER('%' || p_manager_name || '%'))
           AND (p_leave_type IS NULL OR UPPER(lt.leave_type) = UPPER(p_leave_type))
+<<<<<<< HEAD
 AND (p_status IS NULL OR 
      (UPPER(la.status) = UPPER(p_status) OR 
      (la.status = 'Pending' AND UPPER(p_status) = 'IN PROGRESS')))
 AND (p_start_date IS NULL OR la.end_date   >= TO_DATE(p_start_date,'DD-MM-YYYY'))
 AND (p_end_date   IS NULL OR la.start_date <= TO_DATE(p_end_date,'DD-MM-YYYY'))
+=======
+          AND (p_status IS NULL OR 
+              UPPER(CASE WHEN la.status = 'Pending' THEN 'Pending' ELSE la.status END) = UPPER(p_status))
+
+>>>>>>> e324dec29157481b83af647dc4db43d68a5ec79c
 
         ORDER BY la.applied_date DESC
     ) LOOP

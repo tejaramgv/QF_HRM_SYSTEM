@@ -383,17 +383,17 @@ select * from employee_attendance;
 
 EXEC pkg_emp_ops.update_employee(p_employee_id=>1077,p_role=>'backend developer');
 
-EXEC pkg_emp_ops.apply_leave (  p_employee_id=>1037,p_leave_type=>'sick',p_start_date=>to_date('18-08-2025','dd-mm-yyyy'),p_end_date=>to_date('18-08-2025','dd-mm-yyyy'),p_reason=>'health issue');
+EXEC pkg_emp_ops.apply_leave (  p_employee_id=>1037,p_leave_type=>'casual',p_start_date=>to_date('22-08-2025','dd-mm-yyyy'),p_end_date=>to_date('24-08-2025','dd-mm-yyyy'),p_reason=>'health issue');
 
 EXEC pkg_emp_ops.process_leave ( p_leave_id=> 5,p_action    =>'approved'     ,  p_approved_by =>1039);
 
 EXEC pkg_emp_ops.mark_in_time ( p_employee_id=>1037);
 set serveroutput on;
 BEGIN
-   pkg_emp_ops.search_leave_info(p_employee_id=>1036,p_leave_type => 'sick',p_output_mode=>'jm');
+   pkg_emp_ops.search_leave_info(p_employee_id=>1036,p_leave_type => 'sick',p_output_mode=>'detailed',p_status=>'pending');
 END;
 
-
+select * from leave_application;
 
 
 EXEC pkg_perform_mngmt.add_or_update_performance (p_employee_id=>1036,p_quarter=>'Q1',p_year=>2025,p_rating_value=>5,p_eval_type=>'Provisional',p_evaluator_id=>1039);
