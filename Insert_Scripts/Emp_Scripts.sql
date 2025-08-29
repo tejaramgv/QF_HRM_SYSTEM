@@ -14,9 +14,10 @@ END;
 BEGIN
     pkg_emp_ops.mark_in_time(1326);
 END;
+
 set serveroutput on;
 BEGIN
-    mark_out_time(1074); 
+    pkg_emp_ops.mark_out_time(1326); 
 END;
 
 BEGIN
@@ -25,7 +26,8 @@ END;
 
 execute source_requirement.appoint_ceo('Viswanath','Reddy');
 select * from leave_balance;
-
+select * from employee_attendance;
+ALTER TABLE Employee_attendance DISABLE ALL TRIGGERS;
 --ALTER TABLE Employee DROP COLUMN First_Name;
 --ALTER TABLE Employee DROP COLUMN Last_Name;
 --ALTER TABLE Employee DROP COLUMN Gender;

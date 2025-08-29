@@ -75,9 +75,11 @@ PROCEDURE mark_leave (
 PROCEDURE mark_absentees;
 
 PROCEDURE process_leave (
-    p_leave_id         IN NUMBER,
-    p_action           IN VARCHAR2,       -- 'Approved' or 'Rejected'
-    p_approved_by      IN NUMBER,         -- manager's employee_id
+    p_employee_id      IN NUMBER,
+    p_start_date_str   IN VARCHAR2,  -- e.g., '25-08-2025'
+    p_end_date_str     IN VARCHAR2,  -- e.g., '26-08-2025'
+    p_action      IN VARCHAR2,   -- 'Approved' or 'Rejected'
+    p_approved_by IN NUMBER,      -- manager's employee_id
     p_rejection_reason IN VARCHAR2 DEFAULT NULL  -- New parameter
 
 );
@@ -96,6 +98,9 @@ PROCEDURE process_leave (
     p_manager_name   IN VARCHAR2 DEFAULT NULL,
     p_leave_type     IN VARCHAR2 DEFAULT NULL,
     p_status         IN VARCHAR2 DEFAULT NULL,
+    p_start_date     IN VARCHAR2      DEFAULT NULL,
+    p_end_date       IN VARCHAR2      DEFAULT NULL,
+    p_applied_days   IN NUMBER   DEFAULT NULL,
     p_output_mode    IN VARCHAR2 DEFAULT 'TABLE'   -- 'TABLE' or 'DETAILS'
 
 );
@@ -1368,6 +1373,42 @@ IS
     v_overlap_count   NUMBER;
     v_start_date_dt   DATE;
     v_end_date_dt     DATE;
+    v_days           NUMBER := 0;
+
+        -- Leave type IDs
+    v_casual_id      NUMBER;
+    v_sick_id        NUMBER;
+    v_lop_id         NUMBER;
+    v_maternity_id   NUMBER;
+    v_paternity_id   NUMBER;
+    v_gender_allowed  VARCHAR2(10);
+    v_annual_limit    NUMBER;
+    v_carry_forward   CHAR(1);
+
+    -- Balances
+    v_balance        NUMBER := 0;
+        -- Function to count weekdays (Monday to Friday)
+    FUNCTION count_weekdays(start_date DATE, end_date DATE) RETURN NUMBER IS
+    v_count NUMBER := 0;
+    v_curr  DATE := start_date;
+    v_day   VARCHAR2(3);
+    BEGIN
+        WHILE v_curr <= end_date LOOP
+            v_day := UPPER(TO_CHAR(v_curr, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH'));
+            IF v_day IN ('MON','TUE','WED','THU','FRI') THEN
+                v_count := v_count + 1;
+            END IF;
+            v_curr := v_curr + 1;
+        END LOOP;
+        RETURN v_count;
+    END;
+    
+    -- Function to count all days including weekends
+    FUNCTION count_all_days(start_date DATE, end_date DATE) RETURN NUMBER IS
+    BEGIN
+        RETURN end_date - start_date + 1;
+    END;
+
 
 BEGIN
     ----------------------------------------------------------------
@@ -1378,7 +1419,8 @@ BEGIN
         v_end_date_dt   := TO_DATE(p_end_date, 'YYYY-MM-DD');
     EXCEPTION
         WHEN OTHERS THEN
-            RAISE_APPLICATION_ERROR(-20002, 'Invalid date format. Please enter dates as YYYY-MM-DD.');
+            DBMS_OUTPUT.PUT_LINE('Error: Invalid date format. Please enter dates as YYYY-MM-DD.');
+            RETURN;
     END;
 
 
@@ -1386,13 +1428,15 @@ BEGIN
     -- 1. Check if leave type exists
     ----------------------------------------------------------------
     BEGIN
-        SELECT leave_type_id, is_paid
-        INTO v_leave_type_id, v_is_paid
+        SELECT leave_type_id, is_paid, gender_allowed, annual_limit, carry_forward
+        INTO v_leave_type_id, v_is_paid, v_gender_allowed, v_annual_limit, v_carry_forward
         FROM leave_type_master
         WHERE UPPER(leave_type) = UPPER(p_leave_type);
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            v_errors := v_errors || '- The leave type "' || p_leave_type || '" is not available. Please choose a valid leave type.' || CHR(10);
+            DBMS_OUTPUT.PUT_LINE('The leave type "' || p_leave_type || '" is not available. Please choose a valid leave type.' );
+            RETURN;
+
     END;
 
     ----------------------------------------------------------------
@@ -1406,7 +1450,8 @@ BEGIN
         WHERE e.employee_id = p_employee_id;
 
         IF v_employee_status <> 'Active' THEN
-            v_errors := v_errors || '- Your employment status is "' || v_employee_status || '". Only active employees can apply for leave.' || CHR(10);
+            DBMS_OUTPUT.PUT_LINE( 'Your employment status is "' || v_employee_status || '". Only active employees can apply for leave.');
+            RETURN;
         END IF;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
@@ -1419,15 +1464,23 @@ BEGIN
     IF v_leave_type_id IS NOT NULL THEN
         DECLARE
             v_allowed_gender VARCHAR2(10);
+            v_display_gender VARCHAR2(10);
         BEGIN
             SELECT gender_allowed
             INTO v_allowed_gender
             FROM leave_type_master
             WHERE leave_type_id = v_leave_type_id;
+            v_display_gender :=
+            CASE v_allowed_gender
+                WHEN 'F' THEN 'Female'
+                WHEN 'M' THEN 'Male'
+                ELSE 'All'
+            END;
 
             IF v_allowed_gender <> 'All' 
                AND UPPER(v_allowed_gender) <> UPPER(v_gender) THEN
-                v_errors := v_errors || '- The "' || p_leave_type || '" leave is available only to ' || v_allowed_gender || ' employees.' || CHR(10);
+                DBMS_OUTPUT.PUT_LINE('The "' || p_leave_type || '" leave is available only to ' || v_display_gender || ' employees.');
+                RETURN;
             END IF;
         END;
     END IF;
@@ -1480,15 +1533,45 @@ BEGIN
             v_errors := v_errors || '- You already have another leave request during these dates.' || CHR(10);
         END IF;
     END IF;
+    
+    -- Fetch leave type IDs (required for balance check)
+    SELECT leave_type_id INTO v_casual_id FROM leave_type_master WHERE UPPER(leave_type)='CASUAL';
+    SELECT leave_type_id INTO v_sick_id FROM leave_type_master WHERE UPPER(leave_type)='SICK';
+    SELECT leave_type_id INTO v_lop_id FROM leave_type_master WHERE UPPER(leave_type)='LOSS OF PAY';
+    SELECT leave_type_id INTO v_maternity_id FROM leave_type_master WHERE UPPER(leave_type)='MATERNITY';
+    SELECT leave_type_id INTO v_paternity_id FROM leave_type_master WHERE UPPER(leave_type)='PATERNITY';
+    -- Calculate leave days and validate balance (no early return; append to v_errors)
+    IF v_leave_type_id IS NOT NULL AND v_start_date_dt IS NOT NULL AND v_end_date_dt IS NOT NULL THEN
+        IF v_leave_type_id IN (v_maternity_id, v_paternity_id) THEN
+            v_days := count_all_days(v_start_date_dt, v_end_date_dt);
+        ELSE
+            v_days := count_weekdays(v_start_date_dt, v_end_date_dt);
+            IF v_days <= 0 THEN
+                v_errors := v_errors || '- Leave request invalid. No working days (Mon–Fri) in the selected period.' || CHR(10);
+            END IF;
+        END IF;
+
+        -- Balance check
+        SELECT NVL(balance_days,0)
+        INTO v_balance
+        FROM leave_balance
+        WHERE employee_id = p_employee_id
+          AND leave_type_id = v_leave_type_id
+          AND leave_year = EXTRACT(YEAR FROM v_start_date_dt);
+
+        IF v_leave_type_id != v_lop_id AND v_days > v_balance THEN
+            v_errors := v_errors || '- Requested '||v_days||' days, but only '||v_balance||' days are available for '||INITCAP(p_leave_type)||'. Please apply remaining as LOP.' || CHR(10);
+        END IF;
+    END IF;
 
     ----------------------------------------------------------------
     -- 6. Show all messages together
     ----------------------------------------------------------------
     IF v_errors IS NOT NULL AND LENGTH(TRIM(v_errors)) > 0 THEN
-        RAISE_APPLICATION_ERROR(
-            -20001,
-            'We could not submit your leave request for the following reason(s):' || CHR(10) || v_errors
-        );
+        DBMS_OUTPUT.PUT_LINE('We could not submit your leave request for the following reason(s):');
+        DBMS_OUTPUT.PUT_LINE(v_errors);
+        RETURN;
+
     END IF;
 
     ----------------------------------------------------------------
@@ -1829,7 +1912,9 @@ END apply_leave;
 --END process_leave;
 --
 PROCEDURE process_leave (
-    p_leave_id    IN NUMBER,
+    p_employee_id      IN NUMBER,
+    p_start_date_str   IN VARCHAR2,  -- e.g., '25-08-2025'
+    p_end_date_str     IN VARCHAR2,  -- e.g., '26-08-2025'
     p_action      IN VARCHAR2,   -- 'Approved' or 'Rejected'
     p_approved_by IN NUMBER,      -- manager's employee_id
     p_rejection_reason IN VARCHAR2 DEFAULT NULL  -- New parameter
@@ -1839,12 +1924,11 @@ IS
     v_status         VARCHAR2(20);
     v_employee_id    NUMBER;
     v_leave_type_id  NUMBER;
-    v_start_date     DATE;
-    v_end_date       DATE;
     v_days           NUMBER := 0;
     v_manager_id     NUMBER;
     v_role           VARCHAR2(50);
 
+    v_leave_id NUMBER;
 
     -- Leave type IDs
     v_casual_id      NUMBER;
@@ -1877,6 +1961,9 @@ v_leave_type       VARCHAR2(20);
         v_candidate_id NUMBER;
 
     v_remaining_days NUMBER := 0;
+    v_start_date DATE;
+   v_end_date   DATE;
+
 
     -- Function to count weekdays (Monday to Friday)
     FUNCTION count_weekdays(start_date DATE, end_date DATE) RETURN NUMBER IS
@@ -1972,15 +2059,38 @@ END;
 
 BEGIN
     -- Step 1: Check leave request exists
-    BEGIN
-        SELECT status, employee_id, leave_type_id, start_date, end_date
-        INTO v_status, v_employee_id, v_leave_type_id, v_start_date, v_end_date
-        FROM leave_application
-        WHERE leave_id=p_leave_id;
-    EXCEPTION WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('The leave request with the given ID does not exist. Please check the leave ID.');
-        RETURN;
-    END;
+        -- Convert string input to DATE
+    v_start_date := TO_DATE(p_start_date_str, 'DD-MM-YYYY');
+    v_end_date   := TO_DATE(p_end_date_str,   'DD-MM-YYYY');
+
+--    BEGIN
+--        SELECT status, employee_id, leave_type_id, start_date, end_date
+--        INTO v_status, v_employee_id, v_leave_type_id, v_start_date, v_end_date
+--        FROM leave_application
+--        WHERE leave_id=p_leave_id;
+--    EXCEPTION WHEN NO_DATA_FOUND THEN
+--        DBMS_OUTPUT.PUT_LINE('The leave request with the given ID does not exist. Please check the leave ID.');
+--        RETURN;
+--    END;
+-- Step 1: Check leave request exists
+        BEGIN
+            SELECT leave_id, status, employee_id, leave_type_id, start_date, end_date
+            INTO v_leave_id, v_status, v_employee_id, v_leave_type_id, v_start_date, v_end_date
+            FROM leave_application
+            WHERE employee_id = p_employee_id
+              AND start_date  = v_start_date
+              AND end_date    = v_end_date;
+        
+        EXCEPTION WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('No leave request found for employee '||p_employee_id||
+                                 ' from '||TO_CHAR(v_start_date,'DD-MON-YYYY')||
+                                 ' to '||TO_CHAR(v_end_date,'DD-MON-YYYY')||'.');
+            RETURN;
+        WHEN TOO_MANY_ROWS THEN
+            DBMS_OUTPUT.PUT_LINE('Multiple leave applications found for employee '||p_employee_id||
+                                 ' in the given date range. Please refine your criteria.');
+            RETURN;
+        END;
 
     -- Step 2: Already processed
     IF v_status != 'Pending' THEN
@@ -2095,7 +2205,7 @@ IF UPPER(p_action) = 'REJECTED' THEN
     SET status='Rejected',
         approved_by=p_approved_by,
         rejection_reason = INITCAP(p_rejection_reason)
-    WHERE leave_id=p_leave_id;
+    WHERE leave_id=v_leave_id;
 
     DBMS_OUTPUT.PUT_LINE('Leave request has been rejected.');
     DBMS_OUTPUT.PUT_LINE('Rejected by: ' || v_manager_name);
@@ -2260,7 +2370,7 @@ IF UPPER(p_action)='APPROVED' THEN
     UPDATE leave_application
     SET status='Approved', approved_by=p_approved_by,
     rejection_reason = NULL  -- clear if previously set
-    WHERE leave_id=p_leave_id;
+    WHERE leave_id=v_leave_id;
 
     -- Display summary
     DBMS_OUTPUT.PUT_LINE(' Leave Approved Successfully.');
@@ -2334,7 +2444,7 @@ PROCEDURE mark_in_time (
     ln_in_time_set  NUMBER;
     ln_on_leave     NUMBER;
     ld_today        DATE := TRUNC(SYSDATE);
-    ld_curr_time    TIMESTAMP := SYSTIMESTAMP;
+    ld_curr_time    DATE;
 BEGIN
     IF TO_CHAR(ld_today, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT', 'SUN') THEN
         DBMS_OUTPUT.PUT_LINE('Attendance cannot be marked on weekends.');
@@ -2375,9 +2485,12 @@ BEGIN
         DBMS_OUTPUT.PUT_LINE('In-Time already recorded for today for Employee ID ' || p_employee_id);
         RETURN;
     END IF;
+-- 4. Get current IST time
+    ld_curr_time := SYSTIMESTAMP AT TIME ZONE 'Asia/Kolkata';
 
-    -- 4. Check if current time is within allowed In-Time window (09:00 - 12:00)
-    IF TO_NUMBER(TO_CHAR(ld_curr_time, 'HH24')) NOT BETWEEN 9 AND 12 THEN
+
+   --  4. Check if current time is within allowed In-Time window (09:00 - 12:00)
+    IF TO_NUMBER(TO_CHAR(ld_curr_time, 'HH24'))  NOT BETWEEN 9 AND 13 THEN
         DBMS_OUTPUT.PUT_LINE('Current time is outside allowed In-Time window (09:00 - 12:00). Cannot mark In-Time.');
         RETURN;
     END IF;
@@ -2403,20 +2516,22 @@ PROCEDURE mark_out_time (
     ln_exists        NUMBER;
     ld_today         DATE := TRUNC(SYSDATE);
     ln_attendance_id NUMBER;
-    ld_in_time       TIMESTAMP;
+    ld_in_time       TIMESTAMP;  -- store In-Time (timestamp)
     ln_out_time_set  NUMBER;
     ln_on_leave      NUMBER;
     v_employee_name  VARCHAR2(100);
+    ld_out_time      TIMESTAMP;  -- Out-Time
+    v_worked_hours   NUMBER;
+    v_min_hours      NUMBER := 8; -- minimum required hours
 BEGIN
-    -- 0. Check if today is a weekend
-    IF TO_CHAR(ld_today, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT', 'SUN') THEN
+    -- 0. Check weekends
+    IF TO_CHAR(ld_today, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT','SUN') THEN
         DBMS_OUTPUT.PUT_LINE('Attendance cannot be marked on weekends.');
         RETURN;
     END IF;
 
-    -- 1. Check if employee exists and is active, get name
-    SELECT COUNT(*)
-    INTO ln_exists
+    -- 1. Check employee exists & active, get name
+    SELECT COUNT(*) INTO ln_exists
     FROM employee e
     JOIN candidates c ON e.candidate_id = c.candidate_id
     WHERE e.employee_id = p_employee_id
@@ -2427,39 +2542,35 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Get employee name
-    SELECT INITCAP(c.first_name || ' ' || c.last_name)
-    INTO v_employee_name
+    SELECT INITCAP(c.first_name || ' ' || c.last_name) INTO v_employee_name
     FROM candidates c
     JOIN employee e ON e.candidate_id = c.candidate_id
     WHERE e.employee_id = p_employee_id;
 
-    -- 2. Check if In-Time exists for today
-    SELECT in_time, attendance_id 
-    INTO ld_in_time, ln_attendance_id
+    -- 2. Check if In-Time exists
+    SELECT in_time, attendance_id INTO ld_in_time, ln_attendance_id
     FROM employee_attendance
-    WHERE employee_id = p_employee_id 
+    WHERE employee_id = p_employee_id
       AND attendance_date = ld_today;
 
     IF ld_in_time IS NULL THEN
-        DBMS_OUTPUT.PUT_LINE('Cannot mark Out-Time without In-Time for ' || v_employee_name || '. Please mark In-Time first.');
+        DBMS_OUTPUT.PUT_LINE('Cannot mark Out-Time without In-Time for ' || v_employee_name || '.');
         RETURN;
     END IF;
 
-    -- 3. Check if Out-Time is already marked
-    SELECT COUNT(*) 
-    INTO ln_out_time_set
+    -- 3. Already marked Out-Time?
+    SELECT COUNT(*) INTO ln_out_time_set
     FROM employee_attendance
-    WHERE employee_id = p_employee_id 
-      AND attendance_date = ld_today 
+    WHERE employee_id = p_employee_id
+      AND attendance_date = ld_today
       AND out_time IS NOT NULL;
 
     IF ln_out_time_set > 0 THEN
-        DBMS_OUTPUT.PUT_LINE('Out-Time has already been recorded today for ' || v_employee_name || '.');
+        DBMS_OUTPUT.PUT_LINE('Out-Time already recorded today for ' || v_employee_name || '.');
         RETURN;
     END IF;
 
-    -- 4. Check if employee is on approved leave today
+    -- 4. On approved leave today?
     SELECT COUNT(*) INTO ln_on_leave
     FROM leave_application
     WHERE employee_id = p_employee_id
@@ -2472,21 +2583,32 @@ BEGIN
         RETURN;
     END IF;
 
-    -- 5. Check Out-Time is not earlier than In-Time
-    IF SYSTIMESTAMP <= ld_in_time THEN
+    -- 5. Get current Out-Time in IST
+    ld_out_time := SYSTIMESTAMP AT TIME ZONE 'Asia/Kolkata';
+
+    -- 6. Check Out-Time is not earlier than In-Time
+    IF ld_out_time <= ld_in_time THEN
         DBMS_OUTPUT.PUT_LINE('Cannot mark Out-Time earlier than In-Time for ' || v_employee_name || '.');
         RETURN;
     END IF;
 
-    -- 6. Update Out-Time
+    -- 7. Check minimum worked hours
+    v_worked_hours := (CAST(ld_out_time AS DATE) - CAST(ld_in_time AS DATE)) * 24;  -- difference in hours
+    IF v_worked_hours < v_min_hours THEN
+        DBMS_OUTPUT.PUT_LINE('Cannot mark Out-Time. Minimum work hours of ' || v_min_hours || 
+                             ' not completed. Worked: ' || ROUND(v_worked_hours,2) || ' hours.');
+        RETURN;
+    END IF;
+
+    -- 8. Update Out-Time
     UPDATE employee_attendance
-    SET out_time = SYSTIMESTAMP
+    SET out_time = ld_out_time
     WHERE attendance_id = ln_attendance_id;
 
     DBMS_OUTPUT.PUT_LINE('Out-Time recorded successfully for ' || v_employee_name || '.');
     DBMS_OUTPUT.PUT_LINE('Date: ' || TO_CHAR(ld_today,'DD-MON-YYYY'));
-    DBMS_OUTPUT.PUT_LINE('Out-Time: ' || TO_CHAR(SYSTIMESTAMP, 'HH24:MI:SS'));
-COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Out-Time: ' || TO_CHAR(ld_out_time, 'HH24:MI:SS'));
+    COMMIT;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
@@ -2499,7 +2621,7 @@ PROCEDURE mark_leave (
     ln_employee_id IN NUMBER
 ) AS
     ln_exists        NUMBER;
-    ln_on_leave      NUMBER;
+    ln_approved_leave NUMBER;
     v_employee_name  VARCHAR2(100);
     ld_today         DATE := TRUNC(SYSDATE);
 BEGIN
@@ -2509,13 +2631,12 @@ BEGIN
         RETURN;
     END IF;
 
-    -- 1. Check if employee exists and active
+    -- 1. Check if employee exists and is active
     SELECT COUNT(*)
     INTO ln_exists
-    FROM employee e
-    JOIN candidates c ON e.candidate_id = c.candidate_id
-    WHERE e.employee_id = ln_employee_id
-      AND e.employee_status = 'Active';
+    FROM employee
+    WHERE employee_id = ln_employee_id
+      AND employee_status = 'Active';
 
     IF ln_exists = 0 THEN
         DBMS_OUTPUT.PUT_LINE('Employee ID ' || ln_employee_id || ' does not exist or is not active.');
@@ -2540,20 +2661,20 @@ BEGIN
         RETURN;
     END IF;
 
-    -- 3. Check if leave already approved
-    SELECT COUNT(*) INTO ln_on_leave
+    -- 3. Check if leave is approved in leave_application
+    SELECT COUNT(*) INTO ln_approved_leave
     FROM leave_application
     WHERE employee_id = ln_employee_id
       AND status = 'Approved'
       AND TRUNC(start_date) <= ld_today
       AND TRUNC(end_date) >= ld_today;
 
-    IF ln_on_leave > 0 THEN
-        DBMS_OUTPUT.PUT_LINE(v_employee_name || ' already has approved leave today.');
+    IF ln_approved_leave = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('No approved leave found for ' || v_employee_name || ' today. Cannot mark leave.');
         RETURN;
     END IF;
 
-    -- 4. Insert leave
+    -- 4. Insert leave into attendance
     INSERT INTO employee_attendance (
         attendance_id, employee_id, attendance_date, status
     ) VALUES (
@@ -2567,7 +2688,6 @@ EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('An error occurred while marking leave: ' || SQLERRM);
 END;
-
 
 PROCEDURE mark_absentees AS
     v_count NUMBER;
@@ -2623,11 +2743,16 @@ END;
     p_manager_name   IN VARCHAR2 DEFAULT NULL,
     p_leave_type     IN VARCHAR2 DEFAULT NULL,
     p_status         IN VARCHAR2 DEFAULT NULL,
-        p_output_mode    IN VARCHAR2 DEFAULT 'TABLE'   -- 'TABLE' or 'DETAILS'
+    p_start_date     IN VARCHAR2      DEFAULT NULL,
+    p_end_date       IN VARCHAR2      DEFAULT NULL,
+    p_applied_days   IN NUMBER   DEFAULT NULL,
+    p_output_mode    IN VARCHAR2 DEFAULT 'TABLE'   -- 'TABLE' or 'DETAILS'
 
 ) IS
     v_count NUMBER := 0;
     v_header_printed BOOLEAN := FALSE;
+    v_applied_days NUMBER;
+
 BEGIN
     FOR rec IN (
         SELECT la.leave_id,
@@ -2658,19 +2783,39 @@ BEGIN
 AND (p_status IS NULL OR 
      (UPPER(la.status) = UPPER(p_status) OR 
      (la.status = 'Pending' AND UPPER(p_status) = 'IN PROGRESS')))
+AND (p_start_date IS NULL OR la.end_date   >= TO_DATE(p_start_date,'DD-MM-YYYY'))
+AND (p_end_date   IS NULL OR la.start_date <= TO_DATE(p_end_date,'DD-MM-YYYY'))
 
         ORDER BY la.applied_date DESC
     ) LOOP
+        IF UPPER(rec.leave_type) IN ('MATERNITY', 'PATERNITY') THEN
+            v_applied_days := rec.end_date - rec.start_date + 1;
+        ELSE
+            -- Count weekdays only
+            v_applied_days := 0;
+            FOR d IN 0 .. (rec.end_date - rec.start_date) LOOP
+                IF TO_CHAR(rec.start_date + d, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') NOT IN ('SAT','SUN') THEN
+                    v_applied_days := v_applied_days + 1;
+                END IF;
+            END LOOP;
+        END IF;
+        
+        -- ? Extra filter: applied days
+        IF p_applied_days IS NOT NULL AND v_applied_days != p_applied_days THEN
+            CONTINUE; -- skip this record
+        END IF;
+
         v_count := v_count + 1;
+
   IF UPPER(p_output_mode) = 'TABLE' AND NOT v_header_printed THEN
             DBMS_OUTPUT.PUT_LINE(
                 RPAD('Leave ID', 8) || ' | ' ||
                 RPAD('Employee', 20) || ' | ' ||
                 RPAD('Type', 15) || ' | ' ||
-                RPAD('Dates', 25) || ' | ' ||
+                RPAD('Dates', 26) || ' | ' ||
                 RPAD('Status', 10) || ' | ' ||
-                RPAD('Approved/Rejected By', 20) || ' | ' ||
-                RPAD('Balance', 12) || ' | ' ||
+                RPAD('Manager', 20) || ' | ' ||
+                RPAD('Applied Days', 12) || ' | ' ||
                 'Applied On'
             );
             DBMS_OUTPUT.PUT_LINE(RPAD('-',180,'-')); -- separator
@@ -2683,10 +2828,10 @@ AND (p_status IS NULL OR
                 RPAD(rec.leave_id, 8) || ' | ' ||
                 RPAD(rec.employee_name, 20) || ' | ' ||
                 RPAD(rec.leave_type, 15) || ' | ' ||
-                TO_CHAR(rec.start_date, 'DD-MON-YYYY') || ' â†’ ' || TO_CHAR(rec.end_date, 'DD-MON-YYYY') || ' | ' ||
+                TO_CHAR(rec.start_date, 'DD-MON-YYYY') || ' -> ' || TO_CHAR(rec.end_date, 'DD-MON-YYYY') || ' | ' ||
                 RPAD(rec.status, 10) || ' | ' ||
                 RPAD(rec.manager_name, 20) || ' | ' ||
-                RPAD(rec.remaining_balance || ' days', 12) || ' | ' ||
+                RPAD(v_applied_days  || ' days', 12) || ' | ' ||
                 TO_CHAR(rec.applied_date, 'DD-MON-YYYY')
             );
 
@@ -2695,12 +2840,12 @@ AND (p_status IS NULL OR
         DBMS_OUTPUT.PUT_LINE('----------------------------------------------------');
 DBMS_OUTPUT.PUT_LINE('Leave Request #' || rec.leave_id || ':');
 DBMS_OUTPUT.PUT_LINE(rec.employee_name || 
-    ' has applied for ' || rec.leave_type || '.');
+    ' has applied for ' || rec.leave_type ||' (' || v_applied_days || ' days).');
 
 DBMS_OUTPUT.PUT_LINE('The leave period is from ' || 
     TO_CHAR(rec.start_date, 'DD-MON-YYYY') || 
     ' to ' || TO_CHAR(rec.end_date, 'DD-MON-YYYY') || 
-    ' (' || (rec.end_date - rec.start_date + 1) || ' days).');
+    ' (' || (v_applied_days) || ' days).');
 
 DBMS_OUTPUT.PUT_LINE('Status of this application is: ' || rec.status || '.');
 
@@ -2726,8 +2871,11 @@ DBMS_OUTPUT.PUT_LINE('This request was submitted on ' || TO_CHAR(rec.applied_dat
 
     IF v_count = 0 THEN
         DBMS_OUTPUT.PUT_LINE(' No leave applications found with the given criteria.');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE(CHR(10) || 'Total leave records found: ' || v_count);
     END IF;
 END;
+
 PROCEDURE show_leave_balance (
     p_employee_id IN NUMBER
 )
@@ -2735,6 +2883,8 @@ IS
     v_doj DATE;
     v_current_year NUMBER := EXTRACT(YEAR FROM SYSDATE);
     v_months_left NUMBER;
+    v_employee_name VARCHAR2(200);
+
 
     CURSOR c_leave_balance IS
         SELECT lt.leave_type,
@@ -2750,11 +2900,16 @@ IS
           AND lb.leave_year = v_current_year;
 BEGIN
     -- Get DOJ
-    SELECT date_of_joining INTO v_doj
-    FROM employee
-    WHERE employee_id = p_employee_id;
+    SELECT e.date_of_joining,
+           c.first_name || ' ' || c.last_name
+    INTO v_doj, v_employee_name
+    FROM employee e
+    JOIN candidates c ON e.candidate_id = c.candidate_id
+    WHERE e.employee_id = p_employee_id;
 
-    DBMS_OUTPUT.PUT_LINE('Leave Balance Information for Employee ID: ' || p_employee_id);
+    DBMS_OUTPUT.PUT_LINE('Leave Balance Information');
+    DBMS_OUTPUT.PUT_LINE('Employee ID   : ' || p_employee_id);
+    DBMS_OUTPUT.PUT_LINE('Employee Name : ' || v_employee_name);
     DBMS_OUTPUT.PUT_LINE('-------------------------------------------------------------');
     DBMS_OUTPUT.PUT_LINE(RPAD('Leave Type',15) || ' | ' ||
                          LPAD('Total',5) || ' | ' ||
