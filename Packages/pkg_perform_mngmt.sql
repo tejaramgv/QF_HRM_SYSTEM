@@ -9,12 +9,11 @@ CREATE OR REPLACE PACKAGE pkg_perform_mngmt AS
     p_employee_id     IN NUMBER,
     p_quarter         IN VARCHAR2,
     p_year            IN NUMBER,
-    p_rating_value    IN VARCHAR2,
-    p_eval_type       IN VARCHAR2, 
+    p_rating_value    IN VARCHAR2, -- '1','2','3','4','5'
+    p_eval_type       IN VARCHAR2, -- 'Provisional' or 'Final'
     p_evaluator_id    IN NUMBER,
     p_remarks         IN VARCHAR2 DEFAULT NULL
-);
-
+) ;
 
 PROCEDURE search_performance (
     p_employee_id       IN NUMBER DEFAULT NULL,
@@ -27,12 +26,12 @@ PROCEDURE search_performance (
  PROCEDURE salary_analysis;
  PROCEDURE promotion_recommendation;
  
- PROCEDURE promote_employee (
-    p_employee_id IN NUMBER,
-    p_new_band_id IN NUMBER,
-    p_new_salary  IN NUMBER,
-    p_new_role    IN VARCHAR2 DEFAULT NULL
-);
+-- PROCEDURE promote_employee (
+--    p_employee_id IN NUMBER,
+--    p_new_band_id IN NUMBER,
+--    p_new_salary  IN NUMBER,
+--    p_new_role    IN VARCHAR2 DEFAULT NULL
+--);
 
 END;
 /
@@ -43,54 +42,97 @@ CREATE OR REPLACE PACKAGE BODY pkg_perform_mngmt AS
 
  PROCEDURE add_or_update_performance (
     p_employee_id     IN NUMBER,
-    p_quarter        IN VARCHAR2,
+    p_quarter         IN VARCHAR2,
     p_year            IN NUMBER,
-    p_rating_value    IN VARCHAR2, 
-    p_eval_type       IN VARCHAR2,
+    p_rating_value    IN VARCHAR2, -- '1','2','3','4','5'
+    p_eval_type       IN VARCHAR2, -- 'Provisional' or 'Final'
     p_evaluator_id    IN NUMBER,
     p_remarks         IN VARCHAR2 DEFAULT NULL
 ) IS
-    v_rating_id     master_data.masterdata_id%TYPE;
-    v_exists_type   VARCHAR2(20);
-    v_dummy         NUMBER;
+    v_rating_id       master_data.masterdata_id%TYPE;
+    v_exists_type     VARCHAR2(20);
+    v_dummy           NUMBER;
+    v_old_rating_id   NUMBER;
+    v_old_eval_type   VARCHAR2(20);
+    v_old_remarks     VARCHAR2(200);
+    v_cur_year        NUMBER;
+    v_cur_quarter_num NUMBER;
+    v_in_quarter_num  NUMBER;
+    v_manager_id      NUMBER;
 BEGIN
-    -- ✅ Validate employee
+    -- ✅ Validate employee exists
     BEGIN
         SELECT 1 INTO v_dummy
         FROM employee
         WHERE employee_id = p_employee_id;
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            DBMS_OUTPUT.PUT_LINE('Employee ID ' || p_employee_id || ' not found.');
+            DBMS_OUTPUT.PUT_LINE(' Employee ID ' || p_employee_id || ' not found.');
             RETURN;
     END;
 
-    -- ✅ Validate rating
+    -- ✅ Validate evaluator is employee's manager
+    BEGIN
+        SELECT manager_id INTO v_manager_id
+        FROM employee
+        WHERE employee_id = p_employee_id;
+
+        IF v_manager_id IS NULL THEN
+            DBMS_OUTPUT.PUT_LINE(' Employee ' || p_employee_id || ' has no manager assigned. Cannot evaluate.');
+            RETURN;
+        ELSIF v_manager_id != p_evaluator_id THEN
+            DBMS_OUTPUT.PUT_LINE(' Only the assigned manager (ID ' || v_manager_id || ') can evaluate this employee.');
+            RETURN;
+        END IF;
+    END;
+
+    -- ✅ Validate rating exists
     BEGIN
         SELECT masterdata_id INTO v_rating_id
         FROM master_data
         WHERE masterdata_type = 'PERFORMANCE_RATING'
-          AND masterdata_value = to_char(p_rating_value);
+          AND masterdata_value = TO_CHAR(p_rating_value);
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            DBMS_OUTPUT.PUT_LINE('Invalid performance rating "' || p_rating_value || '". Must be 1–5.');
+            DBMS_OUTPUT.PUT_LINE(' Invalid performance rating "' || p_rating_value || '". Must be 1–5.');
             RETURN;
     END;
 
-    -- ✅ Check if record already exists for quarter+year
+    -- ✅ Check no future quarter/year entry
+    v_cur_year := EXTRACT(YEAR FROM SYSDATE);
+    v_cur_quarter_num := CEIL(EXTRACT(MONTH FROM SYSDATE) / 3);
+
+    v_in_quarter_num := CASE UPPER(p_quarter)
+                           WHEN 'Q1' THEN 1
+                           WHEN 'Q2' THEN 2
+                           WHEN 'Q3' THEN 3
+                           WHEN 'Q4' THEN 4
+                           ELSE NULL
+                        END;
+
+    IF v_in_quarter_num IS NULL THEN
+        DBMS_OUTPUT.PUT_LINE(' Invalid quarter: ' || p_quarter);
+        RETURN;
+    END IF;
+
+    IF (p_year > v_cur_year) OR (p_year = v_cur_year AND v_in_quarter_num > v_cur_quarter_num) THEN
+        DBMS_OUTPUT.PUT_LINE(' Cannot insert performance for future quarter (' || p_quarter || '-' || p_year || ').');
+        RETURN;
+    END IF;
+
+    -- ✅ Check if record exists for employee-quarter-year
     BEGIN
-        SELECT evaluation_type INTO v_exists_type
+        SELECT rating_id, evaluation_type, remarks
+        INTO v_old_rating_id, v_old_eval_type, v_old_remarks
         FROM performance_evaluation
         WHERE employee_id = p_employee_id
-          AND quarter = p_quarter
+          AND quarter = UPPER(p_quarter)
           AND year = p_year;
 
-        -- If already Final → block update
-        IF v_exists_type = 'Final' THEN
-            DBMS_OUTPUT.PUT_LINE(' Cannot update: Final rating already exists for ' || p_quarter || '-' || p_year);
+        IF v_old_eval_type = 'Final' THEN
+            DBMS_OUTPUT.PUT_LINE('Cannot update: Final rating already exists for ' || p_quarter || '-' || p_year);
             RETURN;
         ELSE
-            -- Update Provisional
             UPDATE performance_evaluation
             SET rating_id       = v_rating_id,
                 evaluation_type = INITCAP(p_eval_type),
@@ -101,30 +143,40 @@ BEGIN
               AND quarter = UPPER(p_quarter)
               AND year = p_year;
 
-            DBMS_OUTPUT.PUT_LINE(' Updates done for employee ID ' || p_employee_id || 
-                                 ' in ' || p_quarter || '-' || p_year);
+            DBMS_OUTPUT.PUT_LINE('🔄 Performance updated for Employee ID ' || p_employee_id || ' in ' || p_quarter || '-' || p_year);
+
+            IF v_old_rating_id != v_rating_id THEN
+                DBMS_OUTPUT.PUT_LINE('   Rating changed.');
+            END IF;
+            IF v_old_eval_type != INITCAP(p_eval_type) THEN
+                DBMS_OUTPUT.PUT_LINE('   Evaluation Type: ' || v_old_eval_type || ' → ' || INITCAP(p_eval_type));
+            END IF;
+            IF NVL(v_old_remarks,'') != NVL(INITCAP(p_remarks),'') THEN
+                DBMS_OUTPUT.PUT_LINE('   Remarks updated: "' || NVL(v_old_remarks,'-') || '" → "' || NVL(p_remarks,'-') || '"');
+            END IF;
             RETURN;
         END IF;
 
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            -- No record exists → Insert new
             INSERT INTO performance_evaluation (
                 eval_id, employee_id, quarter, year, rating_id, evaluation_type,
                 evaluator_id, remarks, created_date, last_updated
             ) VALUES (
-                perf_eval_seq.NEXTVAL, p_employee_id, UPPER(p_quarter), p_year, v_rating_id, INITCAP(p_eval_type),
-                p_evaluator_id, INITCAP(p_remarks), SYSDATE, SYSDATE
+                perf_eval_seq.NEXTVAL, p_employee_id, UPPER(p_quarter), p_year,
+                v_rating_id, INITCAP(p_eval_type), p_evaluator_id,
+                INITCAP(p_remarks), SYSDATE, SYSDATE
             );
 
-            DBMS_OUTPUT.PUT_LINE('✅ New performance record added for employee ID ' || p_employee_id || 
+            DBMS_OUTPUT.PUT_LINE('✅ New performance record added for Employee ID ' || p_employee_id ||
                                  ' in ' || p_quarter || '-' || p_year);
     END;
 
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE(' Unexpected error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
 END;
+
 
 
 PROCEDURE search_performance (
@@ -142,8 +194,8 @@ BEGIN
                c.first_name || ' ' || c.last_name AS employee_name,
                p.quarter,
                p.year,
-               r.masterdata_value AS rating,        -- numeric rating
-               d.masterdata_value AS rating_desc,   -- description
+               r.masterdata_value AS rating,       
+               d.masterdata_value AS rating_desc,   
                p.evaluation_type,
                evc.first_name || ' ' || evc.last_name AS evaluator_name,
                p.remarks,
@@ -199,11 +251,15 @@ BEGIN
             rec.salary || '/' || rec.max_salary || ').'
         );
     END LOOP;
-    DBMS_OUTPUT.PUT_LINE( ' ('||v_count ||')'|| ' employees has reached 80% of their band max salary');
+    DBMS_OUTPUT.PUT_LINE(chr(10) || ' ('||v_count ||')'|| ' employees has reached 80% of their band max salary');
 END;
 
  PROCEDURE promotion_recommendation IS
+ v_count NUMBER:=0;
+
 BEGIN
+        DBMS_OUTPUT.PUT_LINE('Eligibility list for promotion:');
+
     -- Rule 1: 3 consecutive "1" ratings
     FOR rec IN (
        SELECT e.employee_id,
@@ -225,7 +281,8 @@ WHERE EXISTS (
 
         )
     ) LOOP
-        DBMS_OUTPUT.PUT_LINE(rec.employee_name || ' eligible for promotion (3 consecutive top ratings).');
+        v_count:=v_count+1;
+        DBMS_OUTPUT.PUT_LINE(rec.employee_name || ' (3 consecutive top ratings).');
     END LOOP;
 
     -- Rule 2: Experience band check
@@ -240,39 +297,43 @@ JOIN baseline_salary b ON e.band_id = b.band_id
 WHERE (c.years_of_experience + FLOOR(MONTHS_BETWEEN(SYSDATE, e.date_of_joining) / 12)) > b.max_exp
 
     ) LOOP
-        DBMS_OUTPUT.PUT_LINE(rec.employee_name || ' eligible for promotion (crossed experience band).');
+            v_count:=v_count+1;
+        DBMS_OUTPUT.PUT_LINE(rec.employee_name || ' (crossed experience band).');
     END LOOP;
+        DBMS_OUTPUT.PUT_LINE( chr(10) ||  '('||v_count ||')'|| ' employees are eligible for promotion.');
+
 END;
-
-PROCEDURE promote_employee (
-    p_employee_id IN NUMBER,
-    p_new_band_id IN NUMBER,
-    p_new_salary  IN NUMBER,
-    p_new_role    IN VARCHAR2 DEFAULT NULL
-) IS
-    v_min_salary baseline_salary.min_salary%TYPE;
-    v_max_salary baseline_salary.max_salary%TYPE;
-BEGIN
-    -- Validate salary against band
-    SELECT min_salary, max_salary INTO v_min_salary, v_max_salary
-    FROM baseline_salary
-    WHERE band_id = p_new_band_id;
-
-    IF p_new_salary < v_min_salary OR p_new_salary > v_max_salary THEN
-        DBMS_OUTPUT.PUT_LINE('❌ Salary ' || p_new_salary || ' not valid for band ' || p_new_band_id);
-        RETURN;
-    END IF;
-
-    -- Update
-    UPDATE employee
-    SET band_id = p_new_band_id,
-        salary  = p_new_salary,
-        role    = NVL(p_new_role, role)
-    WHERE employee_id = p_employee_id;
-
-    DBMS_OUTPUT.PUT_LINE('✅ Employee ' || p_employee_id || ' promoted with new band ' || p_new_band_id || ' and salary ' || p_new_salary);
-END;
+--
+--PROCEDURE promote_employee (
+--    p_employee_id IN NUMBER,
+--    p_new_band_id IN NUMBER,
+--    p_new_salary  IN NUMBER,
+--    p_new_role    IN VARCHAR2 DEFAULT NULL
+--) IS
+--    v_min_salary baseline_salary.min_salary%TYPE;
+--    v_max_salary baseline_salary.max_salary%TYPE;
+--BEGIN
+--    -- Validate salary against band
+--    SELECT min_salary, max_salary INTO v_min_salary, v_max_salary
+--    FROM baseline_salary
+--    WHERE band_id = p_new_band_id;
+--
+--    IF p_new_salary < v_min_salary OR p_new_salary > v_max_salary THEN
+--        DBMS_OUTPUT.PUT_LINE('❌ Salary ' || p_new_salary || ' not valid for band ' || p_new_band_id);
+--        RETURN;
+--    END IF;
+--
+--    -- Update
+--    UPDATE employee
+--    SET band_id = p_new_band_id,
+--        salary  = p_new_salary,
+--        role    = NVL(p_new_role, role)
+--    WHERE employee_id = p_employee_id;
+--
+--    DBMS_OUTPUT.PUT_LINE('✅ Employee ' || p_employee_id || ' promoted with new band ' || p_new_band_id || ' and salary ' || p_new_salary);
+--END;
 
 
 END;
 /
+
