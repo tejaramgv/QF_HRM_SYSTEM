@@ -75,20 +75,20 @@ PROCEDURE mark_leave (
 PROCEDURE mark_absentees;
 
 PROCEDURE process_leave (
-    p_employee_id      IN NUMBER,
-    p_start_date_str   IN VARCHAR2,  -- e.g., '25-08-2025'
-    p_end_date_str     IN VARCHAR2,  -- e.g., '26-08-2025'
-    p_action      IN VARCHAR2,   -- 'Approved' or 'Rejected'
-    p_approved_by IN NUMBER,      -- manager's employee_id
+    p_employee_id      IN NUMBER DEFAULT NULL,
+    p_start_date_str   IN VARCHAR2 DEFAULT NULL,  -- e.g., '25-08-2025'
+    p_end_date_str     IN VARCHAR2 DEFAULT NULL,  -- e.g., '26-08-2025'
+    p_action      IN VARCHAR2 DEFAULT NULL,   -- 'Approved' or 'Rejected'
+    p_approved_by IN NUMBER DEFAULT NULL,      -- manager's employee_id
     p_rejection_reason IN VARCHAR2 DEFAULT NULL  -- New parameter
 
 );
  PROCEDURE apply_leave (
-    p_employee_id   IN NUMBER,
-    p_leave_type    IN VARCHAR2,  -- e.g., 'Casual'
-    p_start_date    IN VARCHAR2,
-    p_end_date      IN VARCHAR2,
-    p_reason        IN VARCHAR2
+p_employee_id   IN NUMBER DEFAULT NULL,
+    p_leave_type    IN VARCHAR2 DEFAULT NULL,  -- e.g., 'Casual'
+    p_start_date    IN VARCHAR2 DEFAULT NULL,
+    p_end_date      IN VARCHAR2 DEFAULT NULL,
+    p_reason        IN VARCHAR2 DEFAULT NULL
 );
 
  PROCEDURE search_leave_info (
@@ -198,6 +198,8 @@ PROCEDURE list_employees (
     p_total_experience IN NUMBER   DEFAULT NULL   -- base + since joining
 ) IS
     v_found BOOLEAN := FALSE;
+    v_total_count   NUMBER := 0;
+
 BEGIN
     DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------');
     DBMS_OUTPUT.PUT_LINE(' EMP_ID | CAND_ID | FIRST_NAME | LAST_NAME  | FULL_NAME     | GENDER | ROLE              | BAND  | STATUS   | BASE_EXP | TOTAL_EXP     | SALARY   | DEPARTMENT      | MANAGER         | COUNTRY     | CITY      |');
@@ -246,6 +248,8 @@ BEGIN
         ORDER BY e.employee_id
     ) LOOP
         v_found := TRUE;
+        v_total_count := v_total_count + 1;
+
         DBMS_OUTPUT.PUT_LINE(
             RPAD(emp_rec.employee_id, 8) || '|' ||
             RPAD(emp_rec.candidate_id, 9) || '|' ||
@@ -265,8 +269,13 @@ BEGIN
             RPAD(emp_rec.city, 10)
         );
     END LOOP;
+    IF v_found THEN
 
-    IF NOT v_found THEN
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('Summary:');
+        DBMS_OUTPUT.PUT_LINE('Total Employees record found : ' || v_total_count);
+
+    ELSE
         DBMS_OUTPUT.PUT_LINE(' No employees found with the specified criteria.');
     END IF;
 
@@ -1358,11 +1367,11 @@ END;
 --END apply_leave;
 --/
  PROCEDURE apply_leave (
-    p_employee_id   IN NUMBER,
-    p_leave_type    IN VARCHAR2,  -- e.g., 'Casual'
-    p_start_date    IN VARCHAR2,
-    p_end_date      IN VARCHAR2,
-    p_reason        IN VARCHAR2
+    p_employee_id   IN NUMBER DEFAULT NULL,
+    p_leave_type    IN VARCHAR2 DEFAULT NULL,  -- e.g., 'Casual'
+    p_start_date    IN VARCHAR2 DEFAULT NULL,
+    p_end_date      IN VARCHAR2 DEFAULT NULL,
+    p_reason        IN VARCHAR2 DEFAULT NULL
 )
 IS
     v_leave_type_id   leave_type_master.leave_type_id%TYPE;
@@ -1411,6 +1420,34 @@ IS
 
 
 BEGIN
+
+
+    ----------------------------------------------------------------
+    -- 0. Mandatory Parameter Checks
+    ----------------------------------------------------------------
+    IF p_employee_id IS NULL THEN
+        v_errors := v_errors || '- Employee ID is required.' || CHR(10);
+    END IF;
+
+    IF p_leave_type IS NULL THEN
+        v_errors := v_errors || '- Leave Type is required.' || CHR(10);
+    END IF;
+
+    IF p_start_date IS NULL THEN
+        v_errors := v_errors || '- Start Date is required.' || CHR(10);
+    END IF;
+
+    IF p_end_date IS NULL THEN
+        v_errors := v_errors || '- End Date is required.' || CHR(10);
+    END IF;
+
+    -- If any mandatory errors found, raise them at once
+    IF v_errors IS NOT NULL THEN
+        DBMS_OUTPUT.PUT_LINE('We could not submit your leave request for the following reason(s):');
+        DBMS_OUTPUT.PUT_LINE(v_errors);
+        RETURN;
+    END IF;
+
     ----------------------------------------------------------------
     -- 0. Convert string dates to DATE
     ----------------------------------------------------------------
@@ -1562,6 +1599,40 @@ BEGIN
         IF v_leave_type_id != v_lop_id AND v_days > v_balance THEN
             v_errors := v_errors || '- Requested '||v_days||' days, but only '||v_balance||' days are available for '||INITCAP(p_leave_type)||'. Please apply remaining as LOP.' || CHR(10);
         END IF;
+    END IF;
+    ----------------------------------------------------------------
+    -- Extra: Suggest using Casual/Sick before LOP
+    ----------------------------------------------------------------
+    IF v_leave_type_id = v_lop_id THEN
+        DECLARE
+            v_casual_balance NUMBER := 0;
+            v_sick_balance   NUMBER := 0;
+        BEGIN
+            -- Get casual balance
+            SELECT NVL(balance_days,0)
+            INTO v_casual_balance
+            FROM leave_balance
+            WHERE employee_id = p_employee_id
+              AND leave_type_id = v_casual_id
+              AND leave_year = EXTRACT(YEAR FROM v_start_date_dt);
+
+            -- Get sick balance
+            SELECT NVL(balance_days,0)
+            INTO v_sick_balance
+            FROM leave_balance
+            WHERE employee_id = p_employee_id
+              AND leave_type_id = v_sick_id
+              AND leave_year = EXTRACT(YEAR FROM v_start_date_dt);
+
+            -- If balances exist, give info message
+            IF v_casual_balance > 0 OR v_sick_balance > 0 THEN
+                DBMS_OUTPUT.PUT_LINE('Note: You still have '
+                    || v_casual_balance || ' Casual leave(s) and '
+                    || v_sick_balance   || ' Sick leave(s) available.');
+                DBMS_OUTPUT.PUT_LINE('You may use them before applying Loss of Pay (LOP).');
+                RETURN;
+            END IF;
+        END;
     END IF;
 
     ----------------------------------------------------------------
@@ -1911,12 +1982,13 @@ END apply_leave;
 --        RAISE;
 --END process_leave;
 --
+
 PROCEDURE process_leave (
-    p_employee_id      IN NUMBER,
-    p_start_date_str   IN VARCHAR2,  -- e.g., '25-08-2025'
-    p_end_date_str     IN VARCHAR2,  -- e.g., '26-08-2025'
-    p_action      IN VARCHAR2,   -- 'Approved' or 'Rejected'
-    p_approved_by IN NUMBER,      -- manager's employee_id
+    p_employee_id      IN NUMBER DEFAULT NULL,
+    p_start_date_str   IN VARCHAR2 DEFAULT NULL,  -- e.g., '25-08-2025'
+    p_end_date_str     IN VARCHAR2 DEFAULT NULL,  -- e.g., '26-08-2025'
+    p_action      IN VARCHAR2 DEFAULT NULL,   -- 'Approved' or 'Rejected'
+    p_approved_by IN NUMBER DEFAULT NULL,      -- manager's employee_id
     p_rejection_reason IN VARCHAR2 DEFAULT NULL  -- New parameter
 
 )
@@ -1936,7 +2008,7 @@ IS
     v_lop_id         NUMBER;
     v_maternity_id   NUMBER;
     v_paternity_id   NUMBER;
-
+    v_errors  VARCHAR2(2000);
     -- Annual limit for leave types
     v_annual_limit   NUMBER := 0;
 
@@ -2058,6 +2130,35 @@ END;
 
 
 BEGIN
+    ----------------------------------------------------------------
+    -- 0. Mandatory Parameter Checks
+    ----------------------------------------------------------------
+    IF p_employee_id IS NULL THEN
+        v_errors := v_errors || '- Employee ID is required.' || CHR(10);
+    END IF;
+
+    IF p_start_date_str IS NULL THEN
+        v_errors := v_errors || '- Start Date is required.' || CHR(10);
+    END IF;
+
+    IF p_end_date_str IS NULL THEN
+        v_errors := v_errors || '- End Date is required.' || CHR(10);
+    END IF;
+
+    IF p_action IS NULL THEN
+        v_errors := v_errors || '- Action (Approved/Rejected) is required.' || CHR(10);
+    END IF;
+
+    IF p_approved_by IS NULL THEN
+        v_errors := v_errors || '- Approver (Manager) Employee ID is required.' || CHR(10);
+    END IF;
+
+    -- If any mandatory checks failed, exit immediately
+    IF v_errors IS NOT NULL AND LENGTH(TRIM(v_errors)) > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('We could not process the leave request because:');
+        DBMS_OUTPUT.PUT_LINE(v_errors);
+        RETURN;
+    END IF;
     -- Step 1: Check leave request exists
         -- Convert string input to DATE
     v_start_date := TO_DATE(p_start_date_str, 'DD-MM-YYYY');
@@ -2364,6 +2465,15 @@ IF UPPER(p_action)='APPROVED' THEN
         WHERE employee_id = v_employee_id
           AND leave_type_id = v_leave_type_id
           AND leave_year = EXTRACT(YEAR FROM v_start_date);
+    ELSE
+    -- Handle LOP separately: insert/update usage tracker
+        UPDATE leave_balance
+        SET balance_days = balance_days + v_days,  -- LOP = used days
+            last_updated = SYSDATE
+        WHERE employee_id = v_employee_id
+          AND leave_type_id = v_lop_id
+          AND leave_year = EXTRACT(YEAR FROM v_start_date);
+
     END IF;
 
     -- Mark leave as approved
@@ -2756,6 +2866,7 @@ END;
 BEGIN
     FOR rec IN (
         SELECT la.leave_id,
+              la.employee_id,  -- ? Add employee_id
                c.first_name || ' ' || c.last_name AS employee_name,
                lt.leave_type,
                la.start_date,
@@ -2764,7 +2875,6 @@ BEGIN
                    WHEN la.status = 'Pending' THEN 'Pending'
                    ELSE la.status
                END AS status,
-               la.status AS status,
                NVL(m.first_name || ' ' || m.last_name, 'N/A') AS manager_name,
                la.reason,
                la.applied_date,
@@ -2784,17 +2894,11 @@ BEGIN
           AND (p_manager_id IS NULL OR la.approved_by = p_manager_id)
           AND (p_manager_name IS NULL OR UPPER(m.first_name || ' ' || m.last_name) LIKE UPPER('%' || p_manager_name || '%'))
           AND (p_leave_type IS NULL OR UPPER(lt.leave_type) = UPPER(p_leave_type))
-<<<<<<< HEAD
 AND (p_status IS NULL OR 
      (UPPER(la.status) = UPPER(p_status) OR 
      (la.status = 'Pending' AND UPPER(p_status) = 'IN PROGRESS')))
 AND (p_start_date IS NULL OR la.end_date   >= TO_DATE(p_start_date,'DD-MM-YYYY'))
 AND (p_end_date   IS NULL OR la.start_date <= TO_DATE(p_end_date,'DD-MM-YYYY'))
-=======
-          AND (p_status IS NULL OR 
-              UPPER(CASE WHEN la.status = 'Pending' THEN 'Pending' ELSE la.status END) = UPPER(p_status))
-
->>>>>>> e324dec29157481b83af647dc4db43d68a5ec79c
 
         ORDER BY la.applied_date DESC
     ) LOOP
@@ -2820,6 +2924,7 @@ AND (p_end_date   IS NULL OR la.start_date <= TO_DATE(p_end_date,'DD-MM-YYYY'))
   IF UPPER(p_output_mode) = 'TABLE' AND NOT v_header_printed THEN
             DBMS_OUTPUT.PUT_LINE(
                 RPAD('Leave ID', 8) || ' | ' ||
+                RPAD('Emp ID', 8)   || ' | ' ||   -- ? New column
                 RPAD('Employee', 20) || ' | ' ||
                 RPAD('Type', 15) || ' | ' ||
                 RPAD('Dates', 26) || ' | ' ||
@@ -2836,6 +2941,8 @@ AND (p_end_date   IS NULL OR la.start_date <= TO_DATE(p_end_date,'DD-MM-YYYY'))
         IF UPPER(p_output_mode) = 'TABLE' THEN
             DBMS_OUTPUT.PUT_LINE(
                 RPAD(rec.leave_id, 8) || ' | ' ||
+                RPAD(rec.employee_id, 8) || ' | ' ||   -- ? Show Emp ID
+
                 RPAD(rec.employee_name, 20) || ' | ' ||
                 RPAD(rec.leave_type, 15) || ' | ' ||
                 TO_CHAR(rec.start_date, 'DD-MON-YYYY') || ' -> ' || TO_CHAR(rec.end_date, 'DD-MON-YYYY') || ' | ' ||
@@ -2934,7 +3041,7 @@ BEGIN
             v_remaining NUMBER;
         BEGIN
             -- Handle LOP separately
-            IF rec.leave_type = 'LOP' THEN
+            IF UPPER(rec.leave_type) = 'LOSS OF PAY' THEN
                 v_total := 0;
                 v_used := rec.balance_days; -- assuming LOP taken is stored positive
                 v_remaining := 0;
