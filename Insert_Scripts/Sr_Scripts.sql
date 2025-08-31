@@ -396,8 +396,9 @@ END;
 select * from leave_application;
 
 
-EXEC pkg_perform_mngmt.add_or_update_performance (p_employee_id=>1036,p_quarter=>'Q1',p_year=>2025,p_rating_value=>5,p_eval_type=>'Provisional',p_evaluator_id=>1039);
+EXEC pkg_perform_mngmt.add_or_update_performance (p_employee_id=>1037,p_quarter=>'Q2',p_year=>2025,p_rating_value=>5,p_eval_type=>'provisional',p_evaluator_id=>1039);
 select * from performance_evaluation;
+select * from employee;
 
 select * from candidates;
 
@@ -411,10 +412,11 @@ select * from candidates;
 
 
 
-exec pkg_perform_mngmt.search_performance (p_employee_name=>'a',p_year=>2025) ;
+exec pkg_perform_mngmt.search_performance (p_employee_name=>'sahil bhatia',p_year=>2025,p_quarter=>'Q2') ;
 
 exec pkg_perform_mngmt.salary_analysis;
 
  exec pkg_perform_mngmt.promotion_recommendation;
  
+ set serveroutput on;
  select * from candidates;
