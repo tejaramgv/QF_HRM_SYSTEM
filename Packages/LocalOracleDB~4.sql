@@ -16,6 +16,11 @@ CREATE TABLE exit_management (
 ALTER TABLE exit_management
 ADD created_by NUMBER NOT NULL; -- FK to users/employee table representing HR
 
+ALTER TABLE exit_management
+ADD CONSTRAINT fk_exit_created_by
+    FOREIGN KEY (created_by)
+    REFERENCES employee(employee_id);
+
 CREATE OR REPLACE PROCEDURE record_exit (
     p_employee_id    IN NUMBER,
     p_exit_reason    IN VARCHAR2,

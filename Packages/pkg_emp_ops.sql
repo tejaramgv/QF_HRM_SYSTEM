@@ -2894,22 +2894,20 @@ BEGIN
           AND (p_manager_id IS NULL OR la.approved_by = p_manager_id)
           AND (p_manager_name IS NULL OR UPPER(m.first_name || ' ' || m.last_name) LIKE UPPER('%' || p_manager_name || '%'))
           AND (p_leave_type IS NULL OR UPPER(lt.leave_type) = UPPER(p_leave_type))
-<<<<<<< HEAD
 AND (p_status IS NULL OR 
      (UPPER(la.status) = UPPER(p_status) OR 
      (la.status = 'Pending' AND UPPER(p_status) = 'IN PROGRESS')))
 AND (p_start_date IS NULL OR la.end_date   >= TO_DATE(p_start_date,'DD-MM-YYYY'))
 AND (p_end_date   IS NULL OR la.start_date <= TO_DATE(p_end_date,'DD-MM-YYYY'))
-=======
+
 -- AND (p_status IS NULL OR 
 --      (UPPER(la.status) = UPPER(p_status) OR 
 --      (la.status = 'Pending' AND UPPER(p_status) = 'IN PROGRESS')))
-AND (p_start_date IS NULL OR la.end_date   >= TO_DATE(p_start_date,'DD-MM-YYYY'))
-AND (p_end_date   IS NULL OR la.start_date <= TO_DATE(p_end_date,'DD-MM-YYYY'))
-          AND (p_status IS NULL OR 
-              UPPER(CASE WHEN la.status = 'Pending' THEN 'Pending' ELSE la.status END) = UPPER(p_status))
+--AND (p_start_date IS NULL OR la.end_date   >= TO_DATE(p_start_date,'DD-MM-YYYY'))
+--AND (p_end_date   IS NULL OR la.start_date <= TO_DATE(p_end_date,'DD-MM-YYYY'))
+--          AND (p_status IS NULL OR 
+--              UPPER(CASE WHEN la.status = 'Pending' THEN 'Pending' ELSE la.status END) = UPPER(p_status))
 
->>>>>>> 624dae28f235dcf4172ca50eec6b2b7ca1c8b751
 
         ORDER BY la.applied_date DESC
     ) LOOP
