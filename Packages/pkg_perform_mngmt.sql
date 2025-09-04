@@ -26,12 +26,10 @@ PROCEDURE search_performance (
  PROCEDURE salary_analysis;
  PROCEDURE promotion_recommendation;
  
--- PROCEDURE promote_employee (
---    p_employee_id IN NUMBER,
---    p_new_band_id IN NUMBER,
---    p_new_salary  IN NUMBER,
---    p_new_role    IN VARCHAR2 DEFAULT NULL
---);
+ PROCEDURE promote_employee (
+    p_employee_id IN NUMBER,
+    p_new_salary  IN NUMBER DEFAULT NULL
+);
 
 END;
 /
@@ -174,21 +172,28 @@ BEGIN
 
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('❌ Unexpected error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE(' Unexpected error: ' || SQLERRM);
 END;
 
 
 
-PROCEDURE search_performance (
+
+ PROCEDURE search_performance (
     p_employee_id       IN NUMBER DEFAULT NULL,
     p_employee_name     IN VARCHAR2 DEFAULT NULL,
     p_year              IN NUMBER DEFAULT NULL,
-    p_quarter           IN VARCHAR2 DEFAULT NULL,
+    p_quarter          IN VARCHAR2 DEFAULT NULL,
     p_rating_value      IN VARCHAR2 DEFAULT NULL, 
     p_rating_desc       IN VARCHAR2 DEFAULT NULL   
 ) IS
  v_found BOOLEAN := FALSE;
 BEGIN
+    -- Header
+    DBMS_OUTPUT.PUT_LINE('=============================================================================================================================================');
+    DBMS_OUTPUT.PUT_LINE(RPAD('Employee', 25) || RPAD('Quarter-Year', 15) || RPAD('Rating', 10) || RPAD('Description', 15) ||
+                         RPAD('Type', 15) || RPAD('Evaluator', 25) || RPAD('Updated On', 15) || 'Remarks');
+    DBMS_OUTPUT.PUT_LINE('---------------------------------------------------------------------------------------------------------------------------------------------');
+
     FOR rec IN (
         SELECT e.employee_id,
                c.first_name || ' ' || c.last_name AS employee_name,
@@ -210,130 +215,241 @@ BEGIN
         WHERE (p_employee_id IS NULL OR e.employee_id = search_performance.p_employee_id)
           AND (p_employee_name IS NULL OR UPPER(c.first_name || ' ' || c.last_name) LIKE '%' || UPPER(p_employee_name) || '%')
           AND (p_year IS NULL OR p.year = search_performance.p_year)
-          AND (p_quarter IS NULL OR p.quarter = search_performance.p_quarter)
+          AND (p_quarter IS NULL OR LOWER(p.quarter) = LOWER(search_performance.p_quarter))
           AND (p_rating_value IS NULL OR r.masterdata_value = p_rating_value)
           AND (p_rating_desc IS NULL OR UPPER(d.masterdata_value) LIKE '%' || UPPER(p_rating_desc) || '%')
         ORDER BY p.year, p.quarter
     ) LOOP
-     v_found := TRUE;
-        DBMS_OUTPUT.PUT_LINE(' Employee: ' || rec.employee_name);
-        DBMS_OUTPUT.PUT_LINE('   Quarter: ' || rec.quarter || '-' || rec.year);
-        DBMS_OUTPUT.PUT_LINE('   Rating: ' || rec.rating || ' - ' || rec.rating_desc);
-        DBMS_OUTPUT.PUT_LINE('   Evaluation Type: ' || rec.evaluation_type);
-        DBMS_OUTPUT.PUT_LINE('   Evaluated By: ' || NVL(rec.evaluator_name, 'N/A'));
-        DBMS_OUTPUT.PUT_LINE('   Remarks: ' || NVL(rec.remarks, 'None'));
-        DBMS_OUTPUT.PUT_LINE('   Last Updated: ' || rec.updated_on);
-        DBMS_OUTPUT.PUT_LINE('-------------------------------------------------');
+        v_found := TRUE;
+        DBMS_OUTPUT.PUT_LINE(RPAD(rec.employee_name, 25) ||
+                             RPAD(rec.quarter || '-' || rec.year, 15) ||
+                             RPAD(rec.rating, 10) ||
+                             RPAD(NVL(rec.rating_desc,'-'), 15) ||
+                             RPAD(rec.evaluation_type, 15) ||
+                             RPAD(NVL(rec.evaluator_name,'N/A'), 25) ||
+                             RPAD(rec.updated_on, 15) ||
+                             NVL(rec.remarks,'None'));
     END LOOP;
-      IF NOT v_found THEN
+
+    IF NOT v_found THEN
         DBMS_OUTPUT.PUT_LINE(' No performance records found for given filters.');
     END IF;
+
+    DBMS_OUTPUT.PUT_LINE('================================================================================================================================================');
 END;
 
 
-PROCEDURE salary_analysis IS
-v_count NUMBER:=0;
+
+ PROCEDURE salary_analysis IS
+    v_count NUMBER := 0;
 BEGIN
+    -- Header
+    DBMS_OUTPUT.PUT_LINE('=====================================================================');
+    DBMS_OUTPUT.PUT_LINE(RPAD('Employee', 25) || RPAD('Salary', 15) || RPAD('Max Salary', 15) || 'Percent of Max');
+    DBMS_OUTPUT.PUT_LINE('---------------------------------------------------------------------');
+
     FOR rec IN (
         SELECT e.employee_id,
                c.first_name || ' ' || c.last_name AS employee_name,
                e.salary, b.max_salary,
                ROUND((e.salary / b.max_salary) * 100, 2) AS salary_percent
         FROM employee e
-        JOIN candidates c ON c.candidate_id = e.candidate_id   -- ✅ fetch name from candidates
+        JOIN candidates c ON c.candidate_id = e.candidate_id
         JOIN baseline_salary b ON e.band_id = b.band_id
         WHERE e.salary >= (0.8 * b.max_salary)
     ) LOOP
-    v_count:=v_count+1;
-        DBMS_OUTPUT.PUT_LINE(
-            '️ Employee ' || rec.employee_name ||
-            ' has reached ' || rec.salary_percent || '% of their band max salary (' ||
-            rec.salary || '/' || rec.max_salary || ').'
-        );
+        v_count := v_count + 1;
+        DBMS_OUTPUT.PUT_LINE(RPAD(rec.employee_name, 25) ||
+                             RPAD(TO_CHAR(rec.salary), 15) ||
+                             RPAD(TO_CHAR(rec.max_salary), 15) ||
+                             rec.salary_percent || '%');
     END LOOP;
-    DBMS_OUTPUT.PUT_LINE(chr(10) || ' ('||v_count ||')'|| ' employees has reached 80% of their band max salary');
+
+    DBMS_OUTPUT.PUT_LINE('=====================================================================');
+    DBMS_OUTPUT.PUT_LINE('Total Employees (>=80% of band max): ' || v_count);
+    DBMS_OUTPUT.PUT_LINE('=====================================================================');
 END;
 
+
+
+
  PROCEDURE promotion_recommendation IS
- v_count NUMBER:=0;
-
+    v_count NUMBER := 0;
 BEGIN
-        DBMS_OUTPUT.PUT_LINE('Eligibility list for promotion:');
+    DBMS_OUTPUT.PUT_LINE('===========================================================================================');
+    DBMS_OUTPUT.PUT_LINE(RPAD('Employee Name', 25) || RPAD('Current Band', 15) || RPAD('Eligible For', 20) || RPAD('Next Band', 15) || 'Salary Range');
+    DBMS_OUTPUT.PUT_LINE('-------------------------------------------------------------------------------------------');
 
-    -- Rule 1: 3 consecutive "1" ratings
+    -- Rule 1: 3 consecutive top ratings
     FOR rec IN (
-       SELECT e.employee_id,
-       c.first_name || ' ' || c.last_name AS employee_name
-FROM employee e
-JOIN candidates c ON c.candidate_id = e.candidate_id
-WHERE EXISTS (
-    SELECT 1
-    FROM (
-        SELECT p.employee_id,
-               LISTAGG(md.masterdata_value, ',') WITHIN GROUP (ORDER BY p.year DESC, p.quarter DESC) AS ratings
-        FROM performance_evaluation p
-        JOIN master_data md ON md.masterdata_id = p.rating_id
-        WHERE md.masterdata_type = 'PERFORMANCE_RATING'
-        GROUP BY p.employee_id
-    ) t
-    WHERE t.employee_id = e.employee_id
-      AND REGEXP_LIKE(t.ratings, '^5,5,5') -- three consecutive "1" ratings
-
+        SELECT e.employee_id,
+               c.first_name || ' ' || c.last_name AS employee_name,
+               b.band AS current_band,
+               b.job_title,
+               b.band_id
+        FROM employee e
+        JOIN candidates c ON c.candidate_id = e.candidate_id
+        JOIN baseline_salary b ON e.band_id = b.band_id
+        WHERE EXISTS (
+            SELECT 1
+            FROM (
+                SELECT p.employee_id,
+                       LISTAGG(md.masterdata_value, ',') WITHIN GROUP (ORDER BY p.year DESC, p.quarter DESC) ratings
+                FROM performance_evaluation p
+                JOIN master_data md ON md.masterdata_id = p.rating_id
+                WHERE md.masterdata_type = 'PERFORMANCE_RATING'
+                GROUP BY p.employee_id
+            ) t
+            WHERE t.employee_id = e.employee_id
+              AND REGEXP_LIKE(t.ratings, '^5,5,5')  -- three consecutive top ratings
         )
+        AND (e.last_promotion_date IS NULL OR ADD_MONTHS(e.last_promotion_date, 12) <= SYSDATE) -- ✅ skip recent promotions
     ) LOOP
-        v_count:=v_count+1;
-        DBMS_OUTPUT.PUT_LINE(rec.employee_name || ' (3 consecutive top ratings).');
+        v_count := v_count + 1;
+
+        DECLARE
+            v_next_band baseline_salary.band%TYPE;
+            v_min_sal   NUMBER;
+            v_max_sal   NUMBER;
+        BEGIN
+            SELECT band, min_salary, max_salary
+            INTO v_next_band, v_min_sal, v_max_sal
+            FROM baseline_salary
+            WHERE job_title = rec.job_title
+              AND min_exp > (SELECT min_exp FROM baseline_salary WHERE band_id = rec.band_id)
+            ORDER BY min_exp
+            FETCH FIRST 1 ROWS ONLY;
+
+            DBMS_OUTPUT.PUT_LINE(RPAD(rec.employee_name, 25) || RPAD(rec.current_band, 15) ||
+                                 RPAD('Promotion', 20) || RPAD(v_next_band, 15) ||
+                                 TO_CHAR(v_min_sal) || ' - ' || TO_CHAR(v_max_sal));
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE(RPAD(rec.employee_name, 25) || RPAD(rec.current_band, 15) ||
+                                     RPAD('Top Band Reached', 20) || RPAD('-', 15) || '-');
+        END;
     END LOOP;
 
     -- Rule 2: Experience band check
     FOR rec IN (
-      SELECT e.employee_id,
-       c.first_name || ' ' || c.last_name AS employee_name,
-       (c.years_of_experience + FLOOR(MONTHS_BETWEEN(SYSDATE, e.date_of_joining) / 12)) AS total_experience,
-       b.max_exp
-FROM employee e
-JOIN candidates c ON c.candidate_id = e.candidate_id
-JOIN baseline_salary b ON e.band_id = b.band_id
-WHERE (c.years_of_experience + FLOOR(MONTHS_BETWEEN(SYSDATE, e.date_of_joining) / 12)) > b.max_exp
-
+        SELECT e.employee_id,
+               c.first_name || ' ' || c.last_name AS employee_name,
+               b.band AS current_band,
+               b.job_title,
+               b.band_id,
+               (c.years_of_experience + FLOOR(MONTHS_BETWEEN(SYSDATE, e.date_of_joining)/12)) AS total_exp,
+               b.max_exp
+        FROM employee e
+        JOIN candidates c ON c.candidate_id = e.candidate_id
+        JOIN baseline_salary b ON e.band_id = b.band_id
+        WHERE (c.years_of_experience + FLOOR(MONTHS_BETWEEN(SYSDATE, e.date_of_joining)/12)) > b.max_exp
+        AND (e.last_promotion_date IS NULL OR ADD_MONTHS(e.last_promotion_date, 12) <= SYSDATE) -- ✅ skip recent promotions
     ) LOOP
-            v_count:=v_count+1;
-        DBMS_OUTPUT.PUT_LINE(rec.employee_name || ' (crossed experience band).');
+        v_count := v_count + 1;
+
+        DECLARE
+            v_next_band baseline_salary.band%TYPE;
+            v_min_sal   NUMBER;
+            v_max_sal   NUMBER;
+        BEGIN
+            SELECT band, min_salary, max_salary
+            INTO v_next_band, v_min_sal, v_max_sal
+            FROM baseline_salary
+            WHERE job_title = rec.job_title
+              AND min_exp > (SELECT min_exp FROM baseline_salary WHERE band_id = rec.band_id)
+            ORDER BY min_exp
+            FETCH FIRST 1 ROWS ONLY;
+
+            DBMS_OUTPUT.PUT_LINE(RPAD(rec.employee_name, 25) || RPAD(rec.current_band, 15) ||
+                                 RPAD('Promotion', 20) || RPAD(v_next_band, 15) ||
+                                 TO_CHAR(v_min_sal) || ' - ' || TO_CHAR(v_max_sal));
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE(RPAD(rec.employee_name, 25) || RPAD(rec.current_band, 15) ||
+                                     RPAD('Top Band Reached', 20) || RPAD('-', 15) || '-');
+        END;
     END LOOP;
-        DBMS_OUTPUT.PUT_LINE( chr(10) ||  '('||v_count ||')'|| ' employees are eligible for promotion.');
+
+    DBMS_OUTPUT.PUT_LINE('============================================================================================');
+    DBMS_OUTPUT.PUT_LINE('Total Eligible Employees: ' || v_count);
+    DBMS_OUTPUT.PUT_LINE('============================================================================================');
+END;
+
+
+PROCEDURE promote_employee (
+    p_employee_id IN NUMBER,
+    p_new_salary  IN NUMBER DEFAULT NULL
+) IS
+    v_role          VARCHAR2(100);
+    v_band          VARCHAR2(100);
+    v_job_title     VARCHAR2(100);
+    v_band_id       NUMBER;
+    v_new_band_id   NUMBER;
+    v_min_salary    NUMBER;
+    v_max_salary    NUMBER;
+    v_new_band      VARCHAR2(100);
+    v_final_salary  NUMBER;
+    v_emp_name      VARCHAR2(200);
+BEGIN
+    -- ✅ Validate employee exists and get current details
+    BEGIN
+        SELECT c.first_name || ' ' || c.last_name,
+               b.job_title, b.band, e.band_id
+        INTO v_emp_name, v_job_title, v_band, v_band_id
+        FROM employee e
+        JOIN baseline_salary b ON e.band_id = b.band_id
+        JOIN candidates c ON c.candidate_id = e.candidate_id
+        WHERE e.employee_id = p_employee_id;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE(' Employee ID ' || p_employee_id || ' not found.');
+            RETURN;
+    END;
+
+    -- ✅ Find next higher band for same role
+    BEGIN
+        SELECT band_id, min_salary, max_salary, band
+        INTO v_new_band_id, v_min_salary, v_max_salary, v_new_band
+        FROM baseline_salary
+        WHERE job_title = v_job_title
+          AND ((v_band = 'Junior' AND band = 'Mid')
+            OR (v_band = 'Mid' AND band = 'Senior'))
+        FETCH FIRST 1 ROWS ONLY;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('️ Employee ' || v_emp_name || 
+                                 ' is already at the highest band (' || v_band || ').');
+            RETURN;
+    END;
+
+    -- ✅ Salary validation
+    IF p_new_salary IS NULL THEN
+        v_final_salary := v_min_salary; -- default to band min
+    ELSIF p_new_salary < v_min_salary OR p_new_salary > v_max_salary THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid salary ' || p_new_salary ||
+                             '. Must be between ' || v_min_salary ||
+                             ' and ' || v_max_salary || 
+                             ' for ' || v_new_band || ' band.');
+        RETURN;
+    ELSE
+        v_final_salary := p_new_salary;
+    END IF;
+
+    -- ✅ Update employee
+    UPDATE employee
+    SET band_id = v_new_band_id,
+        salary  = v_final_salary,
+        last_promotion_date = SYSDATE
+    WHERE employee_id = p_employee_id;
+
+    DBMS_OUTPUT.PUT_LINE(' ' || v_emp_name || 
+                         ' promoted from ' || v_band || ' → ' || v_new_band ||
+                         ', salary set to ' || v_final_salary);
 
 END;
---
---PROCEDURE promote_employee (
---    p_employee_id IN NUMBER,
---    p_new_band_id IN NUMBER,
---    p_new_salary  IN NUMBER,
---    p_new_role    IN VARCHAR2 DEFAULT NULL
---) IS
---    v_min_salary baseline_salary.min_salary%TYPE;
---    v_max_salary baseline_salary.max_salary%TYPE;
---BEGIN
---    -- Validate salary against band
---    SELECT min_salary, max_salary INTO v_min_salary, v_max_salary
---    FROM baseline_salary
---    WHERE band_id = p_new_band_id;
---
---    IF p_new_salary < v_min_salary OR p_new_salary > v_max_salary THEN
---        DBMS_OUTPUT.PUT_LINE('❌ Salary ' || p_new_salary || ' not valid for band ' || p_new_band_id);
---        RETURN;
---    END IF;
---
---    -- Update
---    UPDATE employee
---    SET band_id = p_new_band_id,
---        salary  = p_new_salary,
---        role    = NVL(p_new_role, role)
---    WHERE employee_id = p_employee_id;
---
---    DBMS_OUTPUT.PUT_LINE('✅ Employee ' || p_employee_id || ' promoted with new band ' || p_new_band_id || ' and salary ' || p_new_salary);
---END;
 
 
 END;
 /
+
 

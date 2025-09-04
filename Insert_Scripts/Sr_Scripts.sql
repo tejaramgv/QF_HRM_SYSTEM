@@ -392,16 +392,7 @@ set serveroutput on;
 BEGIN
    pkg_emp_ops.search_leave_info(p_employee_id=>1036,p_leave_type => 'sick',p_output_mode=>'detailed',p_status=>'pending');
 END;
-
 select * from leave_application;
-
-
-EXEC pkg_perform_mngmt.add_or_update_performance (p_employee_id=>1037,p_quarter=>'Q2',p_year=>2025,p_rating_value=>5,p_eval_type=>'provisional',p_evaluator_id=>1039);
-select * from performance_evaluation;
-select * from employee;
-
-select * from candidates;
-
 
  PROCEDURE search_performance (
     p_employee_id   IN NUMBER DEFAULT NULL,
@@ -410,13 +401,21 @@ select * from candidates;
     p_quarter       IN VARCHAR2 DEFAULT NULL
 ) ;
 
+EXEC pkg_perform_mngmt.add_or_update_performance (p_employee_id=>1032,p_quarter=>'Q1',p_year=>2025,p_rating_value=>4,p_eval_type=>'final',p_evaluator_id=>1039,p_remarks=>'Good tech skills');
 
 
-exec pkg_perform_mngmt.search_performance (p_employee_name=>'sahil bhatia',p_year=>2025,p_quarter=>'Q2') ;
+select * from performance_evaluation;
+select * from employee WHERE EMPLOYEE_ID=1036;
+SELECT * FROM CANDIDATES WHERE CANDIDATE_ID=13;
 
 exec pkg_perform_mngmt.salary_analysis;
 
- exec pkg_perform_mngmt.promotion_recommendation;
+exec pkg_perform_mngmt.promotion_recommendation;
+
+EXEC pkg_perform_mngmt.promote_employee (p_employee_id=>1037,p_new_salary=>960000);
+
+exec pkg_perform_mngmt.search_performance (p_year=>2025) ;
+
  
  set serveroutput on;
  select * from candidates;
