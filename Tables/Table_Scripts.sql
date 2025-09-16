@@ -141,13 +141,6 @@ CREATE TABLE promotion_eligibility (
     marked_on         DATE DEFAULT SYSDATE
 );
 
--- Employee Exit Table
-CREATE TABLE employee_exit (
-    exit_id     NUMBER PRIMARY KEY,
-    emp_id      NUMBER REFERENCES employees(employee_id) NOT NULL,
-    exit_reason VARCHAR2(100) NOT NULL,
-    exit_date   DATE NOT NULL
-);
 
 --Departments Table
 CREATE TABLE department (
@@ -278,4 +271,22 @@ NOCYCLE;
 
 --NEW COLUMN FOR EMPLOYEE
 ALTER TABLE employee ADD last_promotion_date DATE;
+
+CREATE TABLE exit_management (
+    exit_id           NUMBER PRIMARY KEY, -- unique exit record
+    employee_id       NUMBER NOT NULL,                                     -- FK to employee table
+    exit_reason_id    NUMBER NOT NULL,                                     -- FK to master_data(masterdata_id)
+    exit_date         DATE NOT NULL,                                       -- employee’s last working date
+    exit_comments     VARCHAR2(500),                                       -- optional free-text comments
+    created_at        DATE DEFAULT SYSDATE NOT NULL,                       -- record creation timestamp
+
+    CONSTRAINT fk_exit_emp FOREIGN KEY (employee_id) 
+        REFERENCES employee(employee_id),
+
+    CONSTRAINT fk_exit_reason FOREIGN KEY (exit_reason_id) 
+        REFERENCES master_data(masterdata_id)
+);
+
+ALTER TABLE exit_management
+ADD created_by NUMBER NOT NULL; -- FK to users/employee table representing HR
 

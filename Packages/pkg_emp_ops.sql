@@ -413,6 +413,24 @@ END;
     v_dept_master_id NUMBER;
     v_role_parent    NUMBER;
 BEGIN
+-- Step 0: Check if employee is active
+DECLARE
+    v_status employee.Employee_status%TYPE;
+BEGIN
+    SELECT employee_status INTO v_status
+    FROM employee
+    WHERE employee_id = p_employee_id;
+
+    IF UPPER(v_status) = 'INACTIVE' THEN
+        DBMS_OUTPUT.PUT_LINE(' Employee ID ' || p_employee_id || ' is inactive. Updates are not allowed.');
+        RETURN; -- stop execution
+    END IF;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('? Employee ID ' || p_employee_id || ' not found.');
+        RETURN;
+END;
+
     -- Fetch current salary, role, department, candidate_id
     SELECT 
         NVL(p_salary, salary),
@@ -792,6 +810,8 @@ PROCEDURE add_department (
     v_exists         NUMBER := 0;
     v_city_name      master_data.masterdata_value%TYPE;
     v_manager_name   VARCHAR2(200);
+    v_emp_status     employee.employee_status%TYPE;
+
 BEGIN
     -- Check if department already exists with same name and city
     SELECT COUNT(*)
@@ -812,6 +832,26 @@ BEGIN
                 DBMS_OUTPUT.PUT_LINE('�?� Department "' || INITCAP(p_department_name) || '" already exists in an unknown city (ID: ' || p_city_id || ').');
         END;
         RETURN;
+    END IF;
+    -- Validate manager (must be active if provided)
+    IF p_manager_id IS NOT NULL THEN
+        BEGIN
+            SELECT employee_status 
+            INTO v_emp_status
+            FROM employee
+            WHERE employee_id = p_manager_id;
+
+            IF UPPER(v_emp_status) <> 'ACTIVE' THEN
+                DBMS_OUTPUT.PUT_LINE('? Employee ID ' || p_manager_id || 
+                                     ' is not active. Cannot assign as manager.');
+                RETURN;
+            END IF;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE('? Employee ID ' || p_manager_id || 
+                                     ' not found. Cannot assign as manager.');
+                RETURN;
+        END;
     END IF;
 
     -- Insert new department
@@ -1081,13 +1121,15 @@ BEGIN
 -- Step 4: Update manager assignment
 IF p_manager_id IS NOT NULL THEN
     -- Check if the manager belongs to this department
-    SELECT COUNT(*) INTO v_count
-    FROM employee
-    WHERE employee_id = p_manager_id
-      AND department_id = p_department_id;
+        SELECT COUNT(*)
+        INTO v_count
+        FROM employee
+        WHERE employee_id = p_manager_id
+          AND department_id = p_department_id
+          AND employee_status = 'Active';  -- ? New condition
 
     IF v_count = 0 THEN
-        DBMS_OUTPUT.PUT_LINE('WARNING: The selected manager (Employee ID: ' || p_manager_id || ') does not belong to this department. Assignment aborted.');
+            DBMS_OUTPUT.PUT_LINE('? Manager (ID: ' || p_manager_id || ') does not belong to this department or is inactive.');
         RETURN;
     END IF;
 
@@ -1117,7 +1159,8 @@ IF p_manager_id IS NOT NULL THEN
     UPDATE employee
     SET manager_id = p_manager_id
     WHERE department_id = p_department_id
-      AND employee_id != p_manager_id;
+      AND employee_id != p_manager_id AND UPPER(employee_status) = 'ACTIVE';
+
 
     -- Update department table with manager assignment
     UPDATE department
@@ -1142,7 +1185,8 @@ IF p_manager_id IS NOT NULL THEN
         JOIN candidates c ON e.candidate_id = c.candidate_id
         WHERE e.department_id = p_department_id
           AND e.employee_id != p_manager_id
-          AND e.manager_id = p_manager_id
+          AND e.manager_id = p_manager_id  AND e.employee_status = 'Active'   -- ? Only active employees
+
     ) LOOP
         DBMS_OUTPUT.PUT_LINE('   - ' || rec.emp_name);
     END LOOP;
@@ -2864,6 +2908,22 @@ END;
     v_applied_days NUMBER;
 
 BEGIN
+   -- Early exit if employee is inactive
+    IF p_employee_id IS NOT NULL THEN
+        DECLARE
+            v_exists NUMBER;
+        BEGIN
+            SELECT COUNT(*) INTO v_exists 
+            FROM employee 
+            WHERE employee_id = p_employee_id 
+              AND employee_status = 'Active';
+            
+            IF v_exists = 0 THEN
+                DBMS_OUTPUT.PUT_LINE('? Employee ID ' || p_employee_id || ' not found or inactive.');
+                RETURN;
+            END IF;
+        END;
+    END IF;
     FOR rec IN (
         SELECT la.leave_id,
               la.employee_id,  -- ? Add employee_id
@@ -2880,10 +2940,10 @@ BEGIN
                la.applied_date,
                NVL(lb.balance_days, 0) AS remaining_balance
         FROM leave_application la
-        JOIN employee e ON la.employee_id = e.employee_id
+        JOIN employee e ON la.employee_id = e.employee_id AND UPPER(e.employee_status) = 'ACTIVE'  -- Only active employees
         JOIN candidates c ON e.candidate_id = c.candidate_id
         JOIN leave_type_master lt ON la.leave_type_id = lt.leave_type_id
-        LEFT JOIN employee emgr ON la.approved_by = emgr.employee_id
+        LEFT JOIN employee emgr ON la.approved_by = emgr.employee_id AND UPPER(emgr.employee_status) = 'ACTIVE'  -- Only active managers
         LEFT JOIN candidates m ON emgr.candidate_id = m.candidate_id
         LEFT JOIN leave_balance lb 
                ON lb.employee_id = la.employee_id 
@@ -3025,6 +3085,29 @@ IS
         WHERE lb.employee_id = p_employee_id
           AND lb.leave_year = v_current_year;
 BEGIN
+    -- Check if employee exists and is active
+    DECLARE
+        v_status VARCHAR2(20);
+        v_name   VARCHAR2(200);
+    BEGIN
+        SELECT employee_status, c.first_name || ' ' || c.last_name
+        INTO v_status, v_name
+        FROM employee e
+        JOIN candidates c ON e.candidate_id = c.candidate_id
+        WHERE e.employee_id = p_employee_id;
+
+        IF UPPER(v_status) != 'ACTIVE' THEN
+            DBMS_OUTPUT.PUT_LINE(' Employee "' || v_name || '" (ID: ' || p_employee_id || ') is not active.');
+            RETURN;
+        END IF;
+
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('? Employee with ID ' || p_employee_id || ' not found.');
+            RETURN;
+    END;
+
+
     -- Get DOJ
     SELECT e.date_of_joining,
            c.first_name || ' ' || c.last_name

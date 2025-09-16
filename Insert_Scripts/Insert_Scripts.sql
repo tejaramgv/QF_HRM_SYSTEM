@@ -117,7 +117,16 @@ VALUES (93, 'LEAVE_TYPE', 'Bereavement ', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id)
 VALUES (95, 'JOB_TITLE', 'CEO', NULL);  -- CEO doesn�t belong under any department
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (95, 'DEPARTMENT', 'Executive Management', NULL);
-
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (96, 'EXIT_REASON', 'Contract End', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (97, 'EXIT_REASON', 'Layoff / Downsizing', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (98, 'EXIT_REASON', 'Job Dissatisfaction', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (99, 'EXIT_REASON', 'Performance Issues', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (100, 'EXIT_REASON', 'Pursuing Higher Studies', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (101, 'EXIT_REASON', 'Family Reasons', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (102, 'EXIT_REASON', 'Career Change', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (103, 'EXIT_REASON', 'Work-Life Balance', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (104, 'EXIT_REASON', 'Return to Home Country', NULL);
+INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (105, 'EXIT_REASON', 'Mutual Agreement', NULL);
 select * from master_data;
 
 -- Software Engineer -> Engineering
