@@ -401,21 +401,31 @@ select * from leave_application;
     p_quarter       IN VARCHAR2 DEFAULT NULL
 ) ;
 
-EXEC pkg_perform_mngmt.add_or_update_performance (p_employee_id=>1032,p_quarter=>'Q1',p_year=>2025,p_rating_value=>4,p_eval_type=>'final',p_evaluator_id=>1039,p_remarks=>'Good tech skills');
-
+EXEC pkg_perform_mngmt.add_or_update_performance (p_employee_id=>1039,p_quarter=>'q1',p_year=>2025,p_rating_value=>2,p_eval_type=>'PROVISIONAL',p_evaluator_id=>1056,p_remarks=>'Good tech skills');
 
 select * from performance_evaluation;
-select * from employee WHERE EMPLOYEE_ID=1036;
-SELECT * FROM CANDIDATES WHERE CANDIDATE_ID=13;
+update performance_evaluation set rating_id=82 where rating_id=86
+select * from leave_balance;
+update leave_balance set last_updated='2025-01-01';
+update employee set date_of_joining='2025-01-01';
+select * from employee WHERE candidate_id=46;
+SELECT * FROM CANDIDATES WHERE first_name like 'Pooja';
 
 exec pkg_perform_mngmt.salary_analysis;
-
+set serveroutput on;
 exec pkg_perform_mngmt.promotion_recommendation;
 
-EXEC pkg_perform_mngmt.promote_employee (p_employee_id=>1037,p_new_salary=>960000);
+set serveroutput on;
+EXEC pkg_perform_mngmt.promote_employee (p_employee_id=>1049,p_new_salary=>980000);
 
-exec pkg_perform_mngmt.search_performance (p_year=>2025) ;
+exec pkg_perform_mngmt.search_performance (P_evaluator_name=>'Gaurav Singh',p_eval_type=>'final') ;
 
- 
- set serveroutput on;
+-- search by evaluator, type.
+--in prmotion check whehter he is eligible first and if promoted display his details
+
+set serveroutput on;
+
+--1048
+--1049
+SELECT * FROM LEAVE_BALANCE;
  select * from candidates;

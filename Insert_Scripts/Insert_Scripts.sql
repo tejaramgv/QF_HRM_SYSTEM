@@ -87,6 +87,8 @@ INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, paren
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (85, 'PERFORMANCE_RATING', '4', NULL);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (86, 'PERFORMANCE_RATING', '5', NULL);
 
+
+
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (96, 'PERFORMANCE_RATING_DESCRIPTION', 'Poor', 82);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (97, 'PERFORMANCE_RATING_DESCRIPTION', 'Fair', 83);
 INSERT INTO master_data (masterdata_id, masterdata_type, masterdata_value, parent_id) VALUES (98, 'PERFORMANCE_RATING_DESCRIPTION', 'Satisfactory', 84);
@@ -474,3 +476,11 @@ WHERE upper(job_title) = 'CEO'
   AND 25 BETWEEN min_exp AND max_exp;
 
 select * from baseline_salary;
+
+
+--new
+update master_data set masterdata_value='Excellent' where parent_id=82;
+update master_data set masterdata_value='Very Good' where parent_id=83;
+update master_data set masterdata_value='Satisfactory' where parent_id=84;
+update master_data set masterdata_value='Fair' where parent_id=85;
+update master_data set masterdata_value='Poor' where parent_id=86;

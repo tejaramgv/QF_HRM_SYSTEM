@@ -149,7 +149,6 @@ CREATE TABLE employee_exit (
     exit_date   DATE NOT NULL
 );
 
-
 --Departments Table
 CREATE TABLE department (
     department_id   NUMBER PRIMARY KEY,
